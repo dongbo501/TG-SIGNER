@@ -1,0 +1,22 @@
+tg-signer Dashboard 2026-09-23 更新（Linux amd64）
+
+镜像标签：tg-signer-dashboard:20260923-pagination-search
+兼容标签：tg-signer-dashboard:local
+
+更新内容：
+1. 签到任务默认每页 20 条，可选 50 / 100 条；显示记录范围、总页数、数字页码及上一页 / 下一页文字按钮。
+2. 自动或手动刷新任务状态时保留当前页；搜索、排序及删除末页任务时正确调整页码。
+3. 搜索支持任务名称、Bot 用户名、配置中保存的目标名称及 Chat ID，忽略大小写与首尾空格，支持多目标任务。
+
+导入镜像（在此文件所在目录执行）：
+  sha256sum -c SHA256SUMS
+  docker load -i tg-signer-dashboard.tar.gz
+
+更新已有部署（进入原来的 Compose 项目目录，沿用原配置和数据目录）：
+  docker compose up -d --no-build --pull never --wait dashboard
+
+原 Compose 使用 tg-signer-dashboard:local 时无需修改镜像配置。
+如使用其他标签，请将 image 改为 tg-signer-dashboard:20260923-pagination-search。
+此文件与镜像包用于更新，不包含账号、任务数据或登录密钥。
+
+验证：TypeScript、Next.js 生产构建、全部 12 项 Playwright 测试及新镜像容器健康检查通过。

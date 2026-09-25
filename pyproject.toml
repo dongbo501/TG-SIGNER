@@ -1,0 +1,8 @@
+[tool.ruff]
+line-length = 100
+[tool.ruff.lint]
+extend-select = ["I", "B"]
+ignore = ["B008"]
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["backend/tests"]

@@ -1,0 +1,43 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Runtime data and logs
+data/
+logs/*.log
+backups/
+*.session
+*.session-journal
+
+# Frontend build output and dependencies
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/*.tsbuildinfo
+frontend/test-results/
+frontend/playwright-report/
+
+# Generated release payloads (metadata and instructions remain tracked)
+release/*.tar.gz
+release/*.sha256
+release/blobs/
+release/index.json
+release/manifest.json
+release/oci-layout
+
+# Vendored upstream repository metadata
+upstream/tg-signer/.git/
+
+# Local screenshots
+/截屏*.png
+upstream/*.png
+upstream/tg-signer/*.png
