@@ -111,11 +111,6 @@ Automation 复用上游触发器、过滤器、模板、handler、持久状态�
 
 ## 4. 单容器部署
 
-```bash
-cd /path/to/tg-signer-dashboard
-./scripts/deploy.sh
-```
-
 默认端口映射为 `127.0.0.1:8999:8999`，访问 **http://127.0.0.1:8999**。全部安装参数直接在 `docker-compose.yml` 中修改，无需 `.env` 文件：
 
 ```yaml
