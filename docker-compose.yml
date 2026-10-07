@@ -22,6 +22,13 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    # 启动时修正 ./data 属主后降权为 UID 10001，降权后不保留任何 capability。
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+      - FOWNER
+      - SETGID
+      - SETUID
     stop_grace_period: 40s
     logging:
       driver: json-file

@@ -20,13 +20,10 @@ Ubuntu / Debian 未安装 Docker 时，以 root 执行：
   mkdir -p /opt/tg-signer
   cd /opt/tg-signer
   curl -fsSLO https://raw.githubusercontent.com/dongbo501/TG-SIGNER/main/docker-compose.yml
-  mkdir -p data
-  chmod 700 data
-  chown -R 10001:10001 data
   docker compose pull
   docker compose up -d --wait
 
-启动后只运行单个 dashboard 容器。
+启动后只运行单个 dashboard 容器；data 目录会自动创建并修正属主，无需手动 chown。
 默认只绑定 127.0.0.1:8999。首次密码写入 data/initial-password.txt；登录后请立即修改。
 通过 SSH 隧道访问：
 

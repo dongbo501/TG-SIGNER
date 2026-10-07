@@ -112,9 +112,6 @@ Automation 复用上游触发器、过滤器、模板、handler、持久状态�
 镜像发布在 `ghcr.io/dongbo501/tg-signer:latest`（Linux amd64）。在项目目录（或只放一份 `docker-compose.yml` 的目录）中执行：
 
 ```bash
-mkdir -p data
-chmod 700 data
-sudo chown -R 10001:10001 data
 docker compose pull
 docker compose up -d --wait
 ```
@@ -144,7 +141,7 @@ docker compose exec dashboard cat /data/initial-password.txt
 
 设置页可修改密码；变更会撤销所有旧 JWT。也可以在首次初始化前修改 `docker-compose.yml` 的 `environment.ADMIN_PASSWORD`，设置至少十二位的密码；留空则自动生成。之后修改此参数不会覆盖已保存的密码。
 
-最终镜像只包含 Python 运行时、构建好的前端、tg-signer 与依赖。容器以 UID 10001 运行、根文件系统只读、移除 Linux capabilities；`/data` 挂载可写，`/tmp` 使用 tmpfs。容器监听 8999，静态页面、API、WebSocket 使用同一来源。**请维持单 worker 和单副本**，以免重复调度和 Telegram Session 争用。
+最终镜像只包含 Python 运行时、构建好的前端、tg-signer 与依赖。容器以 root 启动，仅用于把 `/data` 属主修正为 UID 10001，随后降权为 UID 10001 运行且不保留任何 Linux capability；根文件系统只读；`/data` 挂载可写，`/tmp` 使用 tmpfs。容器监听 8999，静态页面、API、WebSocket 使用同一来源。**请维持单 worker 和单副本**，以免重复调度和 Telegram Session 争用。
 
 远程通过 SSH 访问：
 
@@ -175,7 +172,7 @@ docker image rm ghcr.io/dongbo501/tg-signer:latest
 ./scripts/backup.sh
 # 恢复：先 docker compose down，再解压备份到项目目录
 # sudo tar -xzf backups/tg-signer-时间戳.tar.gz -C .
-# sudo chown -R 10001:10001 data
+# （无需手动 chown，容器启动时会自动修正 data 属主）
 # docker compose up -d --wait
 ```
 

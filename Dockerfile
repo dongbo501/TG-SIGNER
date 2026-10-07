@@ -21,7 +21,8 @@ COPY --from=python-builder /install /usr/local
 WORKDIR /app
 COPY --chown=dashboard:dashboard backend/app ./app
 COPY --from=frontend --chown=dashboard:dashboard /build/out ./static
-USER dashboard
+COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 EXPOSE 8999
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8999/api/health', timeout=3)"
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8999", "--workers", "1", "--no-access-log"]
