@@ -18,8 +18,7 @@
 ├── docker-compose.yml            # 唯一服务 dashboard，包含全部安装参数
 ├── scripts/
 │   ├── deploy.sh                 # 创建数据目录并一键构建、部署
-│   ├── backup.sh                 # 停机一致性备份，自动恢复运行
-│   └── package.sh                # 导出已构建镜像和 VPS 一键部署包
+│   └── backup.sh                 # 停机一致性备份，自动恢复运行
 ├── backend/
 │   ├── requirements.txt
 │   ├── app/
@@ -231,12 +230,11 @@ bash install.sh
 `data/initial-password.txt`。远程使用 SSH 隧道或 HTTPS 反向代理，详细说明见
 [release/INSTALL.txt](release/INSTALL.txt)。
 
-从源码重新构建镜像和部署包：
+从源码重新构建镜像：
 
 ```bash
 # 先完成本地测试，再构建
 ./scripts/deploy.sh
-bash scripts/package.sh
 ```
 
 `release/tg-signer-dashboard.tar.gz` 和完整 VPS 压缩包是生成物，已被 Git 忽略；脚本会在
