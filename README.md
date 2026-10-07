@@ -17,7 +17,6 @@
 ├── Dockerfile                    # 多阶段构建，最终只有一个 Python 运行容器
 ├── docker-compose.yml            # 唯一服务 dashboard，包含全部安装参数
 ├── scripts/
-│   ├── deploy.sh                 # 创建数据目录并一键构建、部署
 │   └── backup.sh                 # 停机一致性备份，自动恢复运行
 ├── backend/
 │   ├── requirements.txt
@@ -110,6 +109,16 @@ Automation 复用上游触发器、过滤器、模板、handler、持久状态�
 
 ## 4. 单容器部署
 
+镜像发布在 `ghcr.io/dongbo501/tg-signer:latest`（Linux amd64）。在项目目录（或只放一份 `docker-compose.yml` 的目录）中执行：
+
+```bash
+mkdir -p data
+chmod 700 data
+sudo chown -R 10001:10001 data
+docker compose pull
+docker compose up -d --wait
+```
+
 默认端口映射为 `127.0.0.1:8999:8999`，访问 **http://127.0.0.1:8999**。全部安装参数直接在 `docker-compose.yml` 中修改，无需 `.env` 文件：
 
 ```yaml
@@ -152,10 +161,10 @@ ssh -L 8999:127.0.0.1:8999 root@服务器地址
 docker compose ps                         # 健康状态
 docker compose logs --tail=100 -f          # 服务日志
 docker compose restart                   # 重启
-docker compose up -d --build --wait       # 更新
+docker compose pull && docker compose up -d --wait   # 更新
 docker compose down                      # 删除唯一容器和项目网络，保留 data
 # 删除镜像（可选）
-docker image rm tg-signer-dashboard:local
+docker image rm ghcr.io/dongbo501/tg-signer:latest
 ```
 
 彻底删除账号和密钥时，在确认备份不再需要后再删除 `data/`。`docker compose down -v` 不会删除这里使用的宿主机绑定目录。
@@ -206,37 +215,15 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-## 已构建镜像包与 GitHub Release
+## 镜像构建与发布
 
-每次发布会同时提供源码、Docker 镜像和 Linux amd64 VPS 完整部署包。最新版本请在 GitHub 的
-[Releases](https://github.com/dongbo501/TG-SIGNER/releases) 页面下载；发布资产包含：
+镜像地址：`ghcr.io/dongbo501/tg-signer:latest`（Linux amd64）。部署方式见上文「单容器部署」，
+详细说明见 [release/INSTALL.txt](release/INSTALL.txt)。镜像不包含账号、任务数据或密钥。
 
-- `tg-signer-dashboard.tar.gz`：已构建的 Docker 镜像，可在已有 Compose 项目中导入。
-- `tg-signer-dashboard-vps-amd64.tar.gz`：包含镜像、Compose、安装脚本和说明的完整部署包。
-- `SHA256SUMS` 与 `tg-signer-dashboard-vps-amd64.tar.gz.sha256`：校验文件。
-
-完整部署包适用于 Linux x86_64 / amd64，包内不包含账号、任务数据或密钥。下载后执行：
-
-```bash
-mkdir -p /opt/tg-signer
-tar -xzf tg-signer-dashboard-vps-amd64.tar.gz \
-  -C /opt/tg-signer --strip-components=1
-cd /opt/tg-signer
-sha256sum -c SHA256SUMS
-bash install.sh
-```
-
-安装参数直接修改 `docker-compose.yml`。默认只绑定 `127.0.0.1:8999`；首次随机密码写入
-`data/initial-password.txt`。远程使用 SSH 隧道或 HTTPS 反向代理，详细说明见
-[release/INSTALL.txt](release/INSTALL.txt)。
-
-从源码重新构建镜像：
+从源码重新构建并发布镜像：
 
 ```bash
 # 先完成本地测试，再构建
-./scripts/deploy.sh
+docker build -t ghcr.io/dongbo501/tg-signer:latest .
+docker push ghcr.io/dongbo501/tg-signer:latest
 ```
-
-`release/tg-signer-dashboard.tar.gz` 和完整 VPS 压缩包是生成物，已被 Git 忽略；脚本会在
-本地生成并通过 GitHub Release 上传。发布包使用当前 `docker-compose.yml`，不会打包 `data/`、
-`.env`、Telegram Session 或日志。

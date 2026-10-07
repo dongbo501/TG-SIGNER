@@ -1,8 +1,7 @@
 name: tg-signer-dashboard
 services:
   dashboard:
-    image: tg-signer-dashboard:local
-    build: .
+    image: ghcr.io/dongbo501/tg-signer:latest
     container_name: tg-signer-dashboard
     restart: unless-stopped
     init: true

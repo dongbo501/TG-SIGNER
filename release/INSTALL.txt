@@ -1,8 +1,8 @@
-tg-signer Dashboard 发布包安装说明
+tg-signer Dashboard 安装说明
 ====================================
 
-本目录中的完整 VPS 包适用于 Linux x86_64 / amd64，并包含已构建的 Docker 镜像。
-发布包不包含账号、任务、Telegram Session、数据库或任何密钥。
+镜像 ghcr.io/dongbo501/tg-signer:latest 适用于 Linux x86_64 / amd64。
+镜像不包含账号、任务、Telegram Session、数据库或任何密钥。
 
 1. 准备 Docker
 --------------
@@ -14,17 +14,19 @@ Ubuntu / Debian 未安装 Docker 时，以 root 执行：
   sh /tmp/install-docker.sh
   systemctl enable --now docker
 
-2. 解压并安装
---------------
+2. 下载 Compose 并启动
+-----------------------
 
   mkdir -p /opt/tg-signer
-  tar -xzf tg-signer-dashboard-vps-amd64.tar.gz \
-    -C /opt/tg-signer --strip-components=1
   cd /opt/tg-signer
-  sha256sum -c SHA256SUMS
-  bash install.sh
+  curl -fsSLO https://raw.githubusercontent.com/dongbo501/TG-SIGNER/main/docker-compose.yml
+  mkdir -p data
+  chmod 700 data
+  chown -R 10001:10001 data
+  docker compose pull
+  docker compose up -d --wait
 
-安装脚本会导入镜像、创建 data 目录并启动单个 dashboard 容器。
+启动后只运行单个 dashboard 容器。
 默认只绑定 127.0.0.1:8999。首次密码写入 data/initial-password.txt；登录后请立即修改。
 通过 SSH 隧道访问：
 
@@ -43,9 +45,10 @@ COOKIE_SECURE=true，并保留 Host 头和 WebSocket 转发。
 4. 更新与备份
 --------------
 
-更新时先备份 data 目录，再替换镜像并执行：
+更新时先备份 data 目录，再拉取新镜像并执行：
 
-  docker compose up -d --no-build --pull never --wait dashboard
+  docker compose pull
+  docker compose up -d --wait
 
 必须同时备份 data/dashboard.sqlite3、data/encryption.key 和 data/jwt.key。恢复前执行
 `docker compose down`，解压 data 目录后再启动。不要把 data 目录或导出的 Session 提交到 Git。
