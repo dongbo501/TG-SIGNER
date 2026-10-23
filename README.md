@@ -230,6 +230,11 @@ npm run test:e2e
 构建两种架构的 GHCR 镜像，验证容器健康状态，并发布对应 GitHub Release、源码归档、
 固定版本 Compose、更新说明和 SHA256 校验文件。工作流见 `.github/workflows/release.yml`。
 
+已有 GHCR 镜像库如果最初通过命令行发布，需要先在该包的 **Package settings →
+Manage Actions access** 中给 `dongbo501/TG-SIGNER` 仓库授予 **Write** 权限；否则
+`GITHUB_TOKEN` 会收到 `permission_denied: write_package`，即使镜像构建已成功。
+本次 `1.2.0` 因此使用维护者现有凭据完成发布；后续标签自动发布前需完成该授权。
+
 从源码手动构建镜像：
 
 ```bash

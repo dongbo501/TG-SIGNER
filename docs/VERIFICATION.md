@@ -17,6 +17,13 @@
   模拟网络和协议对象；真实 Telegram 网络端到端验证仍需实际部署后观察日志。
 - 版本标签发布工作流会再次执行测试和前端构建，构建 Linux amd64 / arm64 镜像，并在
   amd64 runner 上检查发布镜像健康后更新 latest 和 GitHub Release。
+- 本次 GitHub CI 和发布前 verify 作业均成功；镜像构建完成后，由于现有 GHCR 包没有
+  授予本仓库 Actions 写权限，自动推送收到 `permission_denied: write_package`。
+  因此使用维护者现有凭据手动发布，后续自动发布的授权步骤已写入 README。
+- 补充本机构建 Linux amd64 镜像并在隔离容器验证：实际架构 x86_64、健康接口版本 1.2.0、
+  首页、登录、空账号/任务、UID 10001、零有效 capability 和完整 shutdown 均通过。
+  容器内 `app/telegram.py` 的 SHA256 与版本源码一致；amd64 和 arm64 分别发布后合并
+  为统一版本标签，源码归档逐文件与 `1.2.0` 标签核对，发布附件上传后校验 SHA256。
 
 ## 2026-09-25 发布前验证
 
