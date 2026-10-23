@@ -81,7 +81,12 @@ jobs:
           for attempt in $(seq 1 30); do
             if docker exec -e RELEASE_VERSION="$VERSION" release-smoke python -c 'import json, os, urllib.request; assert json.load(urllib.request.urlopen("http://127.0.0.1:8999/api/health"))["version"] == os.environ["RELEASE_VERSION"]'; then
               docker stop --time 30 release-smoke
-              test "$(docker inspect --format '{{.State.ExitCode}}' release-smoke)" = 0
+              # Uvicorn may re-raise SIGTERM after completing lifespan cleanup.
+              case "$(docker inspect --format '{{.State.ExitCode}}' release-smoke)" in
+                0|143) ;;
+                *) exit 1 ;;
+              esac
+              docker logs release-smoke 2>&1 | grep -F 'Application shutdown complete.'
               exit 0
             fi
             sleep 2

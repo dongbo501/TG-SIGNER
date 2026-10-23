@@ -11,7 +11,8 @@
 - Linux arm64 镜像在隔离容器启动，`/api/health` 返回版本 `1.2.0`；首页、初始密码登录、
   空账号/任务列表正常。只读根文件系统、临时数据挂载、UID 10001 与零有效 capability 验证通过。
 - Compose 增加仅供 Docker init 转发停止信号所需的 KILL capability；应用仍为零有效
-  capability。重新测试 `docker stop` 后完整执行 shutdown，退出码为 0。
+  capability。重新测试 `docker stop` 后日志确认完整执行 shutdown，退出码为 143
+  （Uvicorn 清理后重新抛出 SIGTERM），没有超时强杀。
 - 测试没有连接真实 Telegram 账号或发送消息，也未修改现有部署数据。断网恢复测试使用
   模拟网络和协议对象；真实 Telegram 网络端到端验证仍需实际部署后观察日志。
 - 版本标签发布工作流会再次执行测试和前端构建，构建 Linux amd64 / arm64 镜像，并在
