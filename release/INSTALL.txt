@@ -1,7 +1,7 @@
 tg-signer Dashboard 安装说明
 ====================================
 
-镜像 ghcr.io/dongbo501/tg-signer:latest 适用于 Linux x86_64 / amd64。
+镜像 ghcr.io/dongbo501/tg-signer:1.2.0（及 latest）适用于 Linux amd64 / arm64。
 镜像不包含账号、任务、Telegram Session、数据库或任何密钥。
 
 1. 准备 Docker

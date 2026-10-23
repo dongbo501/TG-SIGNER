@@ -19,7 +19,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements.txt -e './upstream/tg-signer[yaml]'
-          python -m pip install pytest pytest-asyncio ruff
+          python -m pip install pytest pytest-asyncio ruff==0.14.6
       - run: ruff check backend
       - run: python -m pytest -q backend/tests
       - run: python -m pytest -q upstream/tg-signer/tests

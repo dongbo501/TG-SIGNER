@@ -1,0 +1,27 @@
+TG-SIGNER 1.2.0 更新说明（2026-10-23）
+====================================
+
+新增 Telegram 账号自动重连，无需重新配置账号或修改数据库。
+服务启动后恢复有效账号，健康连接每 30 秒检查一次；异常时从 5 秒起指数退避，
+最长 300 秒，Telegram FloodWait 的等待时间优先。恢复时保留监听器和工作器，
+不会重新执行 startup 规则或自动重发可能已送达的签到消息。
+会话失效或封禁仍需人工重新登录，不能通过网络重连恢复授权。
+
+镜像：ghcr.io/dongbo501/tg-signer:1.2.0
+架构：linux/amd64、linux/arm64
+latest 标签同步指向本版本；发布附件的 docker-compose.yml 固定使用 1.2.0。
+
+更新步骤：
+1. 在现有安装目录执行 ./scripts/backup.sh，或停机后完整备份 data 目录。
+   必须同时保留数据库、encryption.key 和 jwt.key。
+2. 保留现有端口、挂载、时区和代理设置；若使用旧版本标签，将 image 改为
+   ghcr.io/dongbo501/tg-signer:1.2.0。
+   在 cap_add 列表中补充 KILL，让 Docker init 能向降权后的应用转发停止信号。
+   应用进程仍以 UID 10001 运行且不保留 capability；新版 Compose 已包含该设置。
+3. 执行：
+     docker compose pull
+     docker compose up -d --wait
+4. 登录面板，检查账号在线状态与实时连接日志。
+
+源码归档和部署附件可通过 SHA256SUMS 校验。
+发布测试使用模拟 Telegram 响应，不包含真实账号或任何密钥。

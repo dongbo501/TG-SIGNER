@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags: ['[0-9]*.[0-9]*.[0-9]*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify version and backend
+        run: |
+          test "$GITHUB_REF_TYPE" = tag
+          python -m pip install -r backend/requirements.txt -e './upstream/tg-signer[yaml]'
+          python -m pip install pytest pytest-asyncio ruff==0.14.6
+          python -c 'import json, os; assert json.load(open("frontend/package.json"))["version"] == os.environ["GITHUB_REF_NAME"]'
+          ruff check backend
+          python -m pytest -q backend/tests
+          python -m pytest -q upstream/tg-signer/tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Verify frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish image
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/dongbo501/tg-signer:${{ github.ref_name }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/dongbo501/TG-SIGNER
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Verify published image
+        env:
+          IMAGE: ghcr.io/dongbo501/tg-signer:${{ github.ref_name }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          docker run -d --name release-smoke --init --read-only --tmpfs /tmp --tmpfs /data --security-opt no-new-privileges:true --cap-drop ALL --cap-add CHOWN --cap-add DAC_READ_SEARCH --cap-add FOWNER --cap-add SETGID --cap-add SETUID --cap-add KILL "$IMAGE"
+          trap 'docker logs release-smoke; docker rm -f release-smoke' EXIT
+          for attempt in $(seq 1 30); do
+            if docker exec -e RELEASE_VERSION="$VERSION" release-smoke python -c 'import json, os, urllib.request; assert json.load(urllib.request.urlopen("http://127.0.0.1:8999/api/health"))["version"] == os.environ["RELEASE_VERSION"]'; then
+              docker stop --time 30 release-smoke
+              test "$(docker inspect --format '{{.State.ExitCode}}' release-smoke)" = 0
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Promote verified image to latest
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: docker buildx imagetools create --tag ghcr.io/dongbo501/tg-signer:latest "ghcr.io/dongbo501/tg-signer@$DIGEST"
+      - name: Publish source release and deployment files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          mkdir -p dist
+          git archive --format=tar.gz --prefix="TG-SIGNER-$VERSION/" -o "dist/TG-SIGNER-$VERSION-source.tar.gz" HEAD
+          sed "s|tg-signer:latest|tg-signer:$VERSION|" docker-compose.yml > dist/docker-compose.yml
+          cp release/INSTALL.txt dist/INSTALL.txt
+          cp release/UPDATE-20261023.txt dist/UPDATE-20261023.txt
+          (cd dist && sha256sum *.tar.gz docker-compose.yml INSTALL.txt UPDATE-20261023.txt > SHA256SUMS)
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          version = os.environ['VERSION']
+          section = Path('CHANGELOG.md').read_text().split(f'## {version} — ', 1)[1]
+          notes = section.split('\n', 1)[1].split('\n## ', 1)[0].strip()
+          notes += f'\n\n镜像：`ghcr.io/dongbo501/tg-signer:{version}`（linux/amd64、linux/arm64）。\n'
+          notes += f'\n镜像摘要：`{os.environ["DIGEST"]}`。\n'
+          notes += '\n更新：`docker compose pull && docker compose up -d --wait`。请先备份 data 目录。\n'
+          Path('dist/notes.md').write_text(notes)
+          PY
+          gh release create "$VERSION" dist/*.tar.gz dist/docker-compose.yml dist/INSTALL.txt dist/UPDATE-20261023.txt dist/SHA256SUMS --title "TG-SIGNER $VERSION" --notes-file dist/notes.md --verify-tag

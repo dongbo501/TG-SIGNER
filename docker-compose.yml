@@ -29,6 +29,8 @@ services:
       - FOWNER
       - SETGID
       - SETUID
+      # Docker init 需要向已降权的应用转发停止信号；应用仍无 capability。
+      - KILL
     stop_grace_period: 40s
     logging:
       driver: json-file

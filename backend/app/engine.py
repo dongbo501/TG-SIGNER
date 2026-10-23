@@ -240,8 +240,7 @@ class TaskEngine:
             status, summary = "cancelled", "执行已停止"
         except Exception as exc:
             summary = f"{type(exc).__name__}: {str(exc)[:500]}"
-            if type(exc).__module__.startswith("pyrogram"):
-                await telegram.mark_error(task.account_id, exc)
+            await telegram.mark_error(task.account_id, exc)
         finally:
             with Session() as db:
                 record = db.get(Run, run_id)
@@ -443,11 +442,11 @@ class TaskEngine:
 
     async def shutdown(self):
         self.stopping = True
+        await telegram.stop()
         self.scheduler.shutdown(wait=False)
         for task_id in list(self.running):
             await self.stop(task_id)
-        for account_id in list(telegram.clients):
-            await telegram.close(account_id)
+        await telegram.shutdown()
 
 
 task_engine = TaskEngine()

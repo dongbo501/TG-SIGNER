@@ -37,6 +37,22 @@ Next.js App Router 构建输出 HTML/CSS/JS，页面交互在 React 客户端完
 
 重启时将尚处于 running 的旧执行记录标记 interrupted，不伪造成功；恢复启用的调度/监听。五分钟内错过的日期作业允许一次补跑，其余计算下一个未来时间。
 
+## Telegram 连接生命周期
+
+`TelegramManager` 在服务 lifespan 中启动独立巡检，每 5 秒检查是否有到期的账号；
+每个账号最多一个检查任务，全局最多两个网络检查。健康账号下一次检查为 30 秒后。
+连接创建、验证、自动恢复与关闭通过同一账号锁串行，缓存命中同时验证底层
+`session.is_started`，避免把高层 `is_connected` 当作实际网络可用性的唯一依据。
+
+网络/超时/服务端错误按 5–300 秒指数退避并添加随机延迟；FloodWait 不重建连接，
+等待服务器指定时间。错误分类由后台检查和任务失败路径共用。授权失效与封禁进入
+终止状态，不自动创建新授权；用户重新登录后恢复巡检。
+
+重连在原 `HeadlessClient` 上替换 MTProto Session，不替换 dispatcher，不停止
+Automation / Monitor 工作器，也不重新触发 startup 规则。已发出的动作不自动重放。
+新建连接直接调用 `start()`，成功后才登记上游缓存和一个生命周期引用，避免上游
+`__aenter__` 忽略 ConnectionError 造成假在线。关闭时先取消巡检，再停任务、清理客户端。
+
 ## 凭据与授权
 
 面板密码使用 Argon2id。JWT 保存在 HttpOnly + SameSite=Strict Cookie，默认 12 小时有效；修改密码后数据库 token_version 改变，旧令牌即时失效，包括现有 WS 后续心跳检查。

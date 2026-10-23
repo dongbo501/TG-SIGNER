@@ -1,6 +1,6 @@
 # tg-signer Dashboard
 
-面向 Telegram 签到、自动化与消息监控的单容器 Web 控制台（当前版本：`1.1.0`）。
+面向 Telegram 签到、自动化与消息监控的单容器 Web 控制台（当前版本：`1.2.0`）。
 
 源码仓库：<https://github.com/dongbo501/TG-SIGNER> · 上游执行器：<https://github.com/amchii/tg-signer>
 
@@ -85,6 +85,15 @@ stateDiagram-v2
 - 每个流程单独加锁，最多八次验证尝试、十分钟有效期；每个手机号限频，最多二十个未完成流程。错误请求不会越过状态机。
 - 不调用 Pyrogram 交互式 `start()` 获取验证码，不保存验证码、2FA 密码或待登录流程到数据库。成功后 Session、API_HASH、代理凭据以 Fernet 加密。
 - 导入支持 **Pyrogram/Kurigram** Session String 与 `.session` SQLite 文件；先验证实际授权，再保存。Telethon 文件不是相同格式，会明确拒绝而不是错误识别。
+
+### 账号断线自动重连
+
+- 服务启动后自动恢复已保存的有效账号；健康连接每 30 秒检查一次，连接巡检每 5 秒调度，最多同时检查两个账号。
+- 网络断开、连接超时或 Telegram 服务暂时不可用时，账号显示离线并自动重试。重试间隔从 5 秒起指数增长，带少量随机延迟，最长 300 秒；Telegram `FloodWait` 指定的等待时间优先。
+- 自动重连保留共享客户端、签到工作器和 Automation / Monitor 监听器，只替换底层连接。不会为重连重新执行 `startup` 规则，也不会自动重放可能已经送达的签到或发信操作。
+- 连接恢复后自动更新在线状态、最后验证时间和加密 Session，实时日志显示异常、重试与恢复记录。
+- 会话被撤销、重复授权密钥或账号被封禁时停止自动重试，并沿用已配置的失效通知；需要在面板重新登录。删除账号、主动退出登录或关闭服务时会取消对应连接检查。
+- 修改代理后仍可使用账号的刷新连接操作；无需新增环境变量或修改数据库。
 
 ## 3. 数据表与任务执行
 
@@ -214,10 +223,14 @@ npm run test:e2e
 
 ## 镜像构建与发布
 
-镜像地址：`ghcr.io/dongbo501/tg-signer:latest`（Linux amd64）。部署方式见上文「单容器部署」，
+镜像地址：`ghcr.io/dongbo501/tg-signer:1.2.0` / `:latest`（Linux amd64、arm64）。部署方式见上文「单容器部署」，
 详细说明见 [release/INSTALL.txt](release/INSTALL.txt)。镜像不包含账号、任务数据或密钥。
 
-从源码重新构建并发布镜像：
+推送版本标签（如 `1.2.0`）后，GitHub Actions 自动执行后端/上游测试、前端类型检查和构建，
+构建两种架构的 GHCR 镜像，验证容器健康状态，并发布对应 GitHub Release、源码归档、
+固定版本 Compose、更新说明和 SHA256 校验文件。工作流见 `.github/workflows/release.yml`。
+
+从源码手动构建镜像：
 
 ```bash
 # 先完成本地测试，再构建

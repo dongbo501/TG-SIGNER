@@ -144,8 +144,12 @@ def test_logs_pagination_and_overview(admin):
 
 
 def test_websocket_authenticated_history(admin):
+    from backend.app.events import bus
+
+    subscribers = len(bus.clients)
     with admin.websocket_connect("/ws/logs", headers={"origin": "http://testserver"}) as ws:
         assert ws.receive_json()["type"] == "history"
+    assert len(bus.clients) == subscribers
 
 
 def test_legacy_v1_import_and_timezone_order(admin, account):

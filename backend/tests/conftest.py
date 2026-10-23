@@ -1,5 +1,6 @@
 import os
 import tempfile
+from unittest.mock import AsyncMock
 
 # Set before importing any application module; tests never touch deployment data.
 os.environ["DATA_DIR"] = tempfile.mkdtemp(prefix="tg-dashboard-tests-")
@@ -15,8 +16,13 @@ from backend.app.security import attempts
 
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as c:
-        yield c
+    # The real lifespan runs its supervisor; these API fixtures must never try
+    # to connect synthetic account sessions to Telegram. Manager tests use
+    # separate instances and explicitly exercise their real supervisor.
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("backend.app.main.telegram.check_connections", AsyncMock())
+        with TestClient(app) as c:
+            yield c
 
 
 @pytest.fixture

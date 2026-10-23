@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
+import anyio
 import yaml
 from fastapi import (
     APIRouter,
@@ -109,10 +110,8 @@ async def lifespan(app):
     logging.getLogger("tg-signer").setLevel(logging.INFO)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     await task_engine.start()
+    telegram.start()
     task_engine.scheduler.add_job(auth.cleanup, "interval", seconds=30, id="auth-cleanup")
-    task_engine.scheduler.add_job(
-        check_sessions, "interval", minutes=5, id="session-check", max_instances=1, coalesce=True
-    )
     bus.emit(f"控制台已启动 · tg-signer {upstream_version}")
     yield
     await task_engine.shutdown()
@@ -123,7 +122,7 @@ async def lifespan(app):
 
 app = FastAPI(
     title="tg-signer Dashboard API",
-    version="1.1.0",
+    version="1.2.0",
     description="Telegram 账号、签到、自动化与监控管理。除面板登录、健康检查外，所有接口需要 HttpOnly JWT Cookie 或 Bearer JWT。",
     lifespan=lifespan,
     docs_url=None,
@@ -184,7 +183,7 @@ async def value_error(request, exc):
 def health():
     with Session() as db:
         db.execute(select(1))
-    return {"status": "ok", "version": "1.1.0", "tg_signer": upstream_version}
+    return {"status": "ok", "version": "1.2.0", "tg_signer": upstream_version}
 
 
 @app.post("/api/panel/login", tags=["面板鉴权"], summary="密码登录，签发 HttpOnly JWT Cookie")
@@ -383,23 +382,6 @@ async def sync_accounts():
         except Exception as exc:
             results.append({"id": account_id, "status": "error", "error": type(exc).__name__})
     return results
-
-
-async def check_sessions():
-    with Session() as db:
-        ids = list(
-            db.scalars(select(Account.id).where(Account.status.notin_(["invalid", "banned"])))
-        )
-    semaphore = asyncio.Semaphore(2)
-
-    async def check(account_id):
-        async with semaphore:
-            try:
-                await telegram.ping(account_id)
-            except Exception as exc:
-                bus.emit(f"会话检查失败：{type(exc).__name__}", "WARNING", account_id=account_id)
-
-    await asyncio.gather(*(check(i) for i in ids))
 
 
 @api.post("/accounts/{account_id}/ping", tags=["账号"])
@@ -800,10 +782,13 @@ async def live_logs(ws: WebSocket):
     except (WebSocketDisconnect, RuntimeError, OSError):
         pass
     finally:
+        bus.clients.discard(queue)
         for future in futures:
             future.cancel()
-        await asyncio.gather(*futures, return_exceptions=True)
-        bus.clients.discard(queue)
+        # ASGI/AnyIO may cancel the scope again while cleanup is awaiting.
+        # Drain the child tasks without leaking their cancellation to the portal.
+        with anyio.CancelScope(shield=True):
+            await asyncio.gather(*futures, return_exceptions=True)
 
 
 MASK = "••••••••"
