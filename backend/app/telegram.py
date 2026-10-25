@@ -110,10 +110,11 @@ class Signer(AIMixin, core.UserSigner):
 
 
 class TelegramManager:
-    CHECK_INTERVAL = 30
+    CHECK_INTERVAL = 5 * 60
     CONNECT_TIMEOUT = 45
     RETRY_BASE = 5
     RETRY_MAX = 300
+    MAX_RETRIES = 3
 
     def __init__(self):
         self.clients = {}
@@ -121,6 +122,8 @@ class TelegramManager:
         self.execution_locks = defaultdict(asyncio.Lock)
         self.checks = {}
         self.failures = defaultdict(int)
+        self.retries = defaultdict(int)
+        self.paused = set()
         self.next_check = {}
         self.needs_reconnect = set()
         self.check_slots = asyncio.Semaphore(2)
@@ -152,7 +155,11 @@ class TelegramManager:
                 await self.close(account_id)
         current = asyncio.get_running_loop().time()
         for account_id in ids:
-            if account_id in self.checks or current < self.next_check.get(account_id, 0):
+            if (
+                account_id in self.paused
+                or account_id in self.checks
+                or current < self.next_check.get(account_id, 0)
+            ):
                 continue
             future = asyncio.create_task(self._check(account_id), name=f"telegram-{account_id}")
             self.checks[account_id] = future
@@ -193,6 +200,11 @@ class TelegramManager:
                 raise HTTPException(404, "账号不存在")
             if account.status in {"invalid", "banned"}:
                 raise HTTPException(409, "会话失效或账号被封禁，请重新登录")
+        if account_id in self.paused:
+            raise HTTPException(
+                503,
+                f"自动重连已重试 {self.MAX_RETRIES} 次，请手动刷新连接或重新登录",
+            )
         client = self.clients.get(account_id)
         remaining = self.next_check.get(account_id, 0) - asyncio.get_running_loop().time()
         if self.failures[account_id] and remaining > 0:
@@ -219,6 +231,11 @@ class TelegramManager:
                 workers=8,
             )
         try:
+            if account_id in self.needs_reconnect:
+                if self.retries[account_id] >= self.MAX_RETRIES:
+                    await self.pause_retries(account_id)
+                    raise HTTPException(503, "自动重连次数已用尽，请手动刷新连接或重新登录")
+                self.retries[account_id] += 1
             async with asyncio.timeout(self.CONNECT_TIMEOUT):
                 if existing:
                     await client.reconnect()
@@ -241,6 +258,8 @@ class TelegramManager:
                     pass
             if isinstance(exc, Exception):
                 await self.mark_error(account_id, exc)
+                if self.retries.get(account_id, 0) >= self.MAX_RETRIES:
+                    await self.pause_retries(account_id)
             raise
         core._CLIENT_INSTANCES[client.key] = client
         if not existing:
@@ -252,6 +271,25 @@ class TelegramManager:
     def retry_delay(self, failures):
         delay = min(self.RETRY_MAX, self.RETRY_BASE * 2 ** min(failures - 1, 6))
         return min(self.RETRY_MAX, delay + random.uniform(0, delay * 0.2))
+
+    async def pause_retries(self, account_id):
+        if account_id not in self.paused:
+            self.paused.add(account_id)
+            self.next_check[account_id] = float("inf")
+            bus.emit(
+                f"账号自动重连已重试 {self.MAX_RETRIES} 次，已停止自动尝试，请手动刷新连接或重新登录",
+                "ERROR",
+                account_id=account_id,
+            )
+            client = self.clients.get(account_id)
+            if client and client.session is not None:
+                # Also stop Kurigram's own reconnect loop when a post-connect
+                # verification fails on the final attempt. Keep workers intact.
+                try:
+                    async with asyncio.timeout(10):
+                        await client.session.stop()
+                except Exception:
+                    bus.emit("停止 Telegram 底层连接失败", "WARNING", account_id=account_id)
 
     async def mark_error(self, account_id, exc):
         banned = type(exc).__name__ in {
@@ -268,7 +306,9 @@ class TelegramManager:
             # Several callers may observe the same outage; keep its existing
             # deadline instead of increasing the delay for each observer.
             current = asyncio.get_running_loop().time()
-            if current >= self.next_check.get(account_id, 0) or not self.failures[account_id]:
+            if self.retries.get(account_id, 0) >= self.MAX_RETRIES:
+                await self.pause_retries(account_id)
+            elif current >= self.next_check.get(account_id, 0) or not self.failures[account_id]:
                 self.failures[account_id] += 1
                 delay = self.retry_delay(self.failures[account_id])
                 if flood:
@@ -307,6 +347,8 @@ class TelegramManager:
             if client:
                 await self._dispose(client)
             self.failures.pop(account_id, None)
+            self.retries.pop(account_id, None)
+            self.paused.discard(account_id)
             self.next_check.pop(account_id, None)
             self.needs_reconnect.discard(account_id)
 
@@ -383,6 +425,8 @@ class TelegramManager:
                 db.commit()
             client.me = me
             self.failures.pop(account_id, None)
+            self.retries.pop(account_id, None)
+            self.paused.discard(account_id)
             self.needs_reconnect.discard(account_id)
             self.next_check[account_id] = asyncio.get_running_loop().time() + self.CHECK_INTERVAL
             if recovering:

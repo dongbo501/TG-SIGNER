@@ -122,7 +122,7 @@ async def lifespan(app):
 
 app = FastAPI(
     title="tg-signer Dashboard API",
-    version="1.2.0",
+    version="1.2.1",
     description="Telegram 账号、签到、自动化与监控管理。除面板登录、健康检查外，所有接口需要 HttpOnly JWT Cookie 或 Bearer JWT。",
     lifespan=lifespan,
     docs_url=None,
@@ -183,7 +183,7 @@ async def value_error(request, exc):
 def health():
     with Session() as db:
         db.execute(select(1))
-    return {"status": "ok", "version": "1.2.0", "tg_signer": upstream_version}
+    return {"status": "ok", "version": "1.2.1", "tg_signer": upstream_version}
 
 
 @app.post("/api/panel/login", tags=["面板鉴权"], summary="密码登录，签发 HttpOnly JWT Cookie")

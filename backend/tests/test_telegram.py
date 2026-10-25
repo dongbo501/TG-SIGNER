@@ -125,6 +125,136 @@ async def test_background_startup_and_outage_recovery(manager, account, fake):
         assert decrypt(db.get(Account, account).session) == "refreshed-session"
 
 
+async def test_healthy_account_is_checked_every_five_minutes(manager, account, fake):
+    before = asyncio.get_running_loop().time()
+    await run_check(manager, account)
+    after = asyncio.get_running_loop().time()
+    assert before + 300 <= manager.next_check[account] <= after + 300
+    calls = fake.get_me.await_count
+    await run_check(manager, account)
+    assert fake.get_me.await_count == calls
+    manager.next_check[account] = 0
+    await run_check(manager, account)
+    assert fake.get_me.await_count == calls + 1
+
+
+@pytest.mark.parametrize("cached", [False, True])
+async def test_three_failed_retries_stop_background_and_task_connections(
+    manager, account, fake, cached
+):
+    if cached:
+        await manager.ping(account)
+        fake.get_me.side_effect = TimeoutError()
+        manager.next_check[account] = 0
+    else:
+        fake.start.side_effect = ConnectionError("network down")
+    await run_check(manager, account)
+    assert manager.retries.get(account, 0) == 0
+    fake.reconnect.side_effect = ConnectionError("network down")
+    for attempt in range(1, 4):
+        manager.next_check[account] = 0
+        await run_check(manager, account)
+        assert manager.retries[account] == attempt
+        assert (account in manager.paused) is (attempt == 3)
+    assert status(account) == "offline"
+    for _ in range(5):
+        manager.next_check[account] = 0  # Even an elapsed deadline cannot restart retries.
+        await run_check(manager, account)
+        assert not manager.checks
+    for request in (manager.client, manager.ping):
+        with pytest.raises(HTTPException) as exc:
+            await request(account)
+        assert exc.value.status_code == 503
+        assert "手动刷新" in exc.value.detail
+    assert fake.reconnect.await_count == (3 if cached else 0)
+    assert fake.start.await_count == (1 if cached else 4)
+
+
+async def test_third_retry_can_succeed_and_reset_budget(manager, account, fake):
+    await manager.ping(account)
+    await manager.mark_error(account, TimeoutError())
+    fake.reconnect.side_effect = ConnectionError()
+    for _ in range(2):
+        manager.next_check[account] = 0
+        await run_check(manager, account)
+    fake.reconnect.side_effect = fake._start
+    manager.next_check[account] = 0
+    await run_check(manager, account)
+    assert fake.reconnect.await_count == 3
+    assert status(account) == "online"
+    assert account not in manager.paused
+    assert account not in manager.retries
+    await manager.mark_error(account, TimeoutError())
+    fake.reconnect.side_effect = ConnectionError()
+    manager.next_check[account] = 0
+    await run_check(manager, account)
+    assert manager.retries[account] == 1
+    assert account not in manager.paused
+
+
+async def test_manual_refresh_resumes_after_retry_limit(manager, account, fake, monkeypatch):
+    from backend.app.main import reconnect_account
+
+    monkeypatch.setattr("backend.app.main.telegram", manager)
+    fake.start.side_effect = ConnectionError()
+    for _ in range(4):
+        manager.next_check[account] = 0
+        await run_check(manager, account)
+    assert account in manager.paused
+    fake.start.side_effect = fake._start
+    assert (await reconnect_account(account))["status"] == "online"
+    assert account not in manager.paused
+    assert account not in manager.retries
+    assert not manager.failures.get(account)
+
+
+async def test_final_verification_failure_stops_library_reconnect_loop(manager, account, fake):
+    await manager.ping(account)
+    await manager.mark_error(account, TimeoutError())
+    fake.reconnect.side_effect = ConnectionError()
+    for _ in range(2):
+        manager.next_check[account] = 0
+        await run_check(manager, account)
+    fake.reconnect.side_effect = None
+    fake.reconnect.return_value = fake
+    fake.session.stop.reset_mock()
+    fake.get_me.side_effect = TimeoutError()
+    manager.next_check[account] = 0
+    await run_check(manager, account)
+    assert manager.retries[account] == 3
+    assert account in manager.paused
+    fake.session.stop.assert_awaited_once()
+    fake.terminate.assert_not_awaited()
+
+
+async def test_flood_wait_on_healthy_connection_does_not_consume_retries(manager, account, fake):
+    await manager.ping(account)
+    fake.get_me.side_effect = errors.FloodWait(600)
+    for _ in range(5):
+        manager.next_check[account] = 0
+        before = asyncio.get_running_loop().time()
+        await run_check(manager, account)
+        assert manager.next_check[account] >= before + 600
+    assert account not in manager.paused
+    assert not manager.retries.get(account)
+    fake.reconnect.assert_not_awaited()
+
+
+async def test_flood_wait_during_reconnect_still_obeys_retry_limit(manager, account, fake):
+    await manager.ping(account)
+    await manager.mark_error(account, TimeoutError())
+    fake.reconnect.side_effect = errors.FloodWait(600)
+    for attempt in range(1, 4):
+        manager.next_check[account] = 0
+        await run_check(manager, account)
+        assert manager.retries[account] == attempt
+        await manager.check_connections()
+        assert not manager.checks
+    assert account in manager.paused
+    fake.reconnect.assert_awaited()
+    assert fake.reconnect.await_count == 3
+
+
 async def test_deadline_applies_to_manual_requests_and_duplicate_errors(manager, account, fake):
     fake.start.side_effect = OSError("offline")
     await run_check(manager, account)
