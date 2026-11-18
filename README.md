@@ -1,6 +1,6 @@
 # tg-signer Dashboard
 
-面向 Telegram 签到、自动化与消息监控的单容器 Web 控制台（当前版本：`1.2.1`）。
+面向 Telegram 签到、自动化与消息监控的单容器 Web 控制台（当前版本：`1.3.0`）。
 
 源码仓库：<https://github.com/dongbo501/TG-SIGNER> · 上游执行器：<https://github.com/amchii/tg-signer>
 
@@ -119,7 +119,7 @@ Automation 复用上游触发器、过滤器、模板、handler、持久状态�
 
 ## 4. 单容器部署
 
-镜像发布在 `ghcr.io/dongbo501/tg-signer:latest`（Linux amd64）。在项目目录（或只放一份 `docker-compose.yml` 的目录）中执行：
+镜像发布在 `ghcr.io/dongbo501/tg-signer:latest`（Linux amd64、arm64）。在项目目录（或只放一份 `docker-compose.yml` 的目录）中执行：
 
 ```bash
 docker compose pull
@@ -222,19 +222,29 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
+## 网页界面与浏览器兼容
+
+1.3.0 使用统一浅／深色配色与自适应布局，支持系统主题、手动主题覆盖及跨标签页同步。
+手机导航支持键盘与 Escape，表格可横向滚动并保留分页／排序，图表可展开查看数据。
+浏览器以 Baseline Widely Available 为基础；`light-dark()` 和标准滚动条配色提供 CSS 回退，
+容器查询、动态视口和原生 `<dialog>` 用于现代浏览器。支持减少动态效果和可见焦点。
+
+界面预览：[桌面](docs/dashboard.png)、[深色](docs/dashboard-dark.png)、[手机](docs/mobile.png)。
+截图使用浏览器测试模拟数据。详细验证见 [验证记录](docs/VERIFICATION.md)。
+
 ## 镜像构建与发布
 
-镜像地址：`ghcr.io/dongbo501/tg-signer:1.2.1` / `:latest`（Linux amd64、arm64）。部署方式见上文「单容器部署」，
+镜像地址：`ghcr.io/dongbo501/tg-signer:1.3.0` / `:latest`（Linux amd64、arm64）。部署方式见上文「单容器部署」，
 详细说明见 [release/INSTALL.txt](release/INSTALL.txt)。镜像不包含账号、任务数据或密钥。
 
-推送版本标签（如 `1.2.1`）后，GitHub Actions 自动执行后端/上游测试、前端类型检查和构建，
+推送版本标签（如 `1.3.0`）后，GitHub Actions 自动执行后端/上游测试、前端类型检查和构建，
 构建两种架构的 GHCR 镜像，验证容器健康状态，并发布对应 GitHub Release、源码归档、
 固定版本 Compose、更新说明和 SHA256 校验文件。工作流见 `.github/workflows/release.yml`。
 
 已有 GHCR 镜像库如果最初通过命令行发布，需要先在该包的 **Package settings →
 Manage Actions access** 中给 `dongbo501/TG-SIGNER` 仓库授予 **Write** 权限；否则
 `GITHUB_TOKEN` 会收到 `permission_denied: write_package`，即使镜像构建已成功。
-本次 `1.2.0` 因此使用维护者现有凭据完成发布；后续标签自动发布前需完成该授权。
+历史版本 `1.2.0` 曾因缺少该授权使用维护者凭据发布。若出现同类错误，请检查包与仓库的 Actions 访问关联。
 
 从源码手动构建镜像：
 

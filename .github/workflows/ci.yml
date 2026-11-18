@@ -39,3 +39,14 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      - name: Verify interface behavior
+        run: |
+          npx playwright install --with-deps chromium
+          python3 -m http.server 18999 --bind 127.0.0.1 --directory out > /tmp/tg-signer-static.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18999/ > /dev/null; then break; fi
+            sleep 1
+          done
+          DASHBOARD_URL=http://127.0.0.1:18999 npm run test:e2e -- tests/task-pagination.spec.ts tests/modernization.spec.ts

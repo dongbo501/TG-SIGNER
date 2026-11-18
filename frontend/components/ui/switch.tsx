@@ -17,9 +17,13 @@ export function Switch({
       checked={checked}
       onCheckedChange={onCheckedChange}
       disabled={disabled}
-      className="inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-slate-200 transition-colors data-[state=checked]:bg-primary disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-400"
+      className="group relative inline-flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-xl disabled:opacity-40"
     >
-      <SwitchPrimitive.Thumb className="block h-4 w-4 translate-x-0.5 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-[18px]" />
+      <span
+        aria-hidden="true"
+        className="h-5 w-9 rounded-full bg-surface-raised transition-colors group-data-[state=checked]:bg-primary"
+      />
+      <SwitchPrimitive.Thumb className="absolute left-2 block h-4 w-4 rounded-full bg-surface shadow transition-transform data-[state=checked]:translate-x-4" />
     </SwitchPrimitive.Root>
   );
 }

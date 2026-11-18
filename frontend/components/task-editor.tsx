@@ -339,7 +339,7 @@ export function TaskEditor({
             <>
               <textarea
                 aria-label="完整任务配置 JSON"
-                className="code-editor min-h-72 !bg-slate-50"
+                className="code-editor min-h-72 !bg-surface-muted"
                 value={raw}
                 onChange={(e) => setRaw(e.target.value)}
                 spellCheck={false}
@@ -364,7 +364,7 @@ export function TaskEditor({
               {config.chats?.map((chat: any, ci: number) => (
                 <div
                   key={ci}
-                  className="rounded-xl border border-line bg-slate-50/60 p-4"
+                  className="rounded-xl border border-line bg-surface-muted p-4"
                 >
                   <div className="mb-4 flex items-center justify-between">
                     <span className="eyebrow text-muted">
@@ -700,7 +700,7 @@ export function TaskEditor({
             保存后启用{kind !== "signer" ? "并启动监听" : ""}
           </label>
           {error && (
-            <p className="whitespace-pre-wrap rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            <p className="whitespace-pre-wrap rounded-lg bg-danger-soft p-3 text-sm text-danger">
               {error}
             </p>
           )}

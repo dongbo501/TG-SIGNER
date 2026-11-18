@@ -40,6 +40,15 @@ jobs:
           npm ci
           npm run typecheck
           npm run build
+          npx playwright install --with-deps chromium
+          DATA_DIR="$RUNNER_TEMP/tg-signer-e2e" STATIC_DIR="$PWD/out" ADMIN_PASSWORD=ci-browser-test-password python -m uvicorn backend.app.main:app --app-dir .. --host 127.0.0.1 --port 18999 > "$RUNNER_TEMP/tg-signer-e2e.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID"; cat "$RUNNER_TEMP/tg-signer-e2e.log"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18999/api/health; then break; fi
+            sleep 1
+          done
+          DASHBOARD_URL=http://127.0.0.1:18999 DASHBOARD_PASSWORD=ci-browser-test-password npm run test:e2e
 
   publish:
     needs: verify
@@ -106,8 +115,8 @@ jobs:
           git archive --format=tar.gz --prefix="TG-SIGNER-$VERSION/" -o "dist/TG-SIGNER-$VERSION-source.tar.gz" HEAD
           sed "s|tg-signer:latest|tg-signer:$VERSION|" docker-compose.yml > dist/docker-compose.yml
           cp release/INSTALL.txt dist/INSTALL.txt
-          cp release/UPDATE-20261025.txt dist/UPDATE-20261025.txt
-          (cd dist && sha256sum *.tar.gz docker-compose.yml INSTALL.txt UPDATE-20261025.txt > SHA256SUMS)
+          cp release/UPDATE-20261118.txt dist/UPDATE-20261118.txt
+          (cd dist && sha256sum *.tar.gz docker-compose.yml INSTALL.txt UPDATE-20261118.txt > SHA256SUMS)
           python - <<'PY'
           import os
           from pathlib import Path
@@ -119,4 +128,4 @@ jobs:
           notes += '\n更新：`docker compose pull && docker compose up -d --wait`。请先备份 data 目录。\n'
           Path('dist/notes.md').write_text(notes)
           PY
-          gh release create "$VERSION" dist/*.tar.gz dist/docker-compose.yml dist/INSTALL.txt dist/UPDATE-20261025.txt dist/SHA256SUMS --title "TG-SIGNER $VERSION" --notes-file dist/notes.md --verify-tag
+          gh release create "$VERSION" dist/*.tar.gz dist/docker-compose.yml dist/INSTALL.txt dist/UPDATE-20261118.txt dist/SHA256SUMS --title "TG-SIGNER $VERSION" --notes-file dist/notes.md --verify-tag

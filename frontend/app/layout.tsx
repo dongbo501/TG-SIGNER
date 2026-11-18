@@ -12,9 +12,10 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
+        <meta name="color-scheme" content="light dark" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(() => { try { const stored = localStorage.getItem("tg-signer-theme"); const dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches; document.documentElement.classList.toggle("dark", dark); } catch (_) {} })();`,
+            __html: `(() => { try { const value = localStorage.getItem("tg-signer-theme"); if (value === "light" || value === "dark") document.querySelector('meta[name="color-scheme"]').content = value; } catch (_) {} })();`,
           }}
         />
       </head>

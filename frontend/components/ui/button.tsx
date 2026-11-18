@@ -3,19 +3,20 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 const variants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 disabled:pointer-events-none disabled:opacity-45",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-45",
   {
     variants: {
       variant: {
-        default: "bg-primary text-white hover:bg-emerald-800 shadow-sm",
-        outline: "border border-line bg-white text-ink hover:bg-slate-50",
-        ghost: "text-muted hover:bg-slate-100 hover:text-ink",
-        destructive: "bg-red-50 text-red-600 hover:bg-red-100",
+        default: "bg-primary-fill text-white hover:bg-primary-hover shadow-sm",
+        outline:
+          "border border-line bg-surface text-ink hover:bg-surface-muted",
+        ghost: "text-muted hover:bg-surface-raised hover:text-ink",
+        destructive: "bg-danger-soft text-danger hover:bg-danger-soft",
       },
       size: {
-        default: "h-10 px-4 py-2",
+        default: "min-h-11 px-4 py-2",
         sm: "h-8 px-3 text-xs",
-        icon: "h-9 w-9",
+        icon: "h-11 w-11",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

@@ -57,7 +57,7 @@ export function TimePicker({
             align="end"
             sideOffset={8}
             collisionPadding={16}
-            className="z-[60] w-56 rounded-xl border border-line bg-white p-3 shadow-lg focus:outline-none"
+            className="z-[60] w-56 rounded-xl border border-line bg-surface p-3 shadow-lg focus:outline-none"
           >
             <div className="grid grid-cols-2 gap-3">
               <label className="grid gap-2 text-center text-xs font-medium text-muted">

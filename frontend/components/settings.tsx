@@ -46,7 +46,7 @@ export function Settings() {
     }
   };
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
       <div className="space-y-6">
         <section className="card p-6">
           <h2 className="mb-5 flex items-center gap-2 font-semibold">
@@ -229,7 +229,7 @@ export function Settings() {
             </ActionButton>
           </div>
         </section>
-        <section className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-5">
+        <section className="rounded-xl border border-line bg-success-soft p-5">
           <p className="eyebrow text-primary">运行环境</p>
           <p className="mt-4 text-sm">
             tg-signer{" "}
