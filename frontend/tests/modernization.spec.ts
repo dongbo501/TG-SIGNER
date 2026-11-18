@@ -220,7 +220,7 @@ test("overview fits narrow and wide screens and exposes chart data", async ({
         .getByRole("button", { name: "添加账号", exact: true })
         .evaluate((element) => getComputedStyle(element).backgroundColor),
     )
-    .toBe("rgb(21, 35, 41)");
+    .toBe("rgb(18, 21, 31)");
   await page.screenshot({ path: "../docs/dashboard-dark.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "../docs/mobile.png", fullPage: true });
@@ -244,4 +244,72 @@ test("form labels focus inputs and describe helper text", async ({ page }) => {
         ),
       ),
   ).toBeTruthy();
+});
+
+test("motion pauses persistently and respects reduced-motion changes", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await mockDashboard(page);
+  const ring = page.locator(".orbit-one");
+  await expect
+    .poll(() =>
+      ring.evaluate((element) => getComputedStyle(element).animationName),
+    )
+    .toBe("orbit-spin");
+  await page.getByRole("button", { name: "暂停动效", exact: true }).click();
+  await expect
+    .poll(() =>
+      ring.evaluate((element) => getComputedStyle(element).animationName),
+    )
+    .toBe("none");
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "开启动效", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "开启动效", exact: true }).click();
+  await expect
+    .poll(() =>
+      ring.evaluate((element) => getComputedStyle(element).animationName),
+    )
+    .toBe("orbit-spin");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect
+    .poll(() =>
+      ring.evaluate((element) => getComputedStyle(element).animationName),
+    )
+    .toBe("none");
+  await expect(
+    page.getByRole("button", { name: "已跟随系统减少动态效果" }),
+  ).toBeDisabled();
+});
+
+test("navigation and task filters work without View Transitions", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(document, "startViewTransition", {
+      value: undefined,
+    }),
+  );
+  await mockDashboard(page);
+  await page
+    .getByRole("navigation", { name: "工作空间", exact: true })
+    .getByRole("button", { name: "签到任务", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "签到任务", exact: true }),
+  ).toBeFocused();
+  const filters = page.getByRole("group", { name: "任务状态筛选" });
+  await filters.getByRole("button", { name: /已停用/ }).click();
+  await expect(page.locator(".data-table tbody tr")).toHaveCount(0);
+  await filters.getByRole("button", { name: /启用中/ }).click();
+  await expect(page.locator(".data-table tbody tr")).toHaveCount(1);
+  await page
+    .getByRole("navigation", { name: "工作空间", exact: true })
+    .getByRole("button", { name: "自动化规则", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "自动化规则", exact: true }),
+  ).toBeFocused();
 });

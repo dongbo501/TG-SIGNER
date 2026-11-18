@@ -20,7 +20,7 @@ export type TrendPoint = {
 function TrendChart({ data }: { data: TrendPoint[] }) {
   return (
     <div
-      className="h-56 min-w-0"
+      className="h-64 min-w-0"
       role="img"
       aria-label="最近七天任务执行趋势，完整数据见下方查看趋势数据"
     >

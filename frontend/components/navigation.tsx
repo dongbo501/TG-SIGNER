@@ -36,61 +36,27 @@ type Props = {
 };
 function NavigationContent({ page, taskCount, onNavigate }: Props) {
   return (
-    <>
-      <div className="brand">
-        <span className="brand-mark">
-          <Send size={22} aria-hidden="true" />
-        </span>
-        <div>
-          <p>
-            tg-signer<span>.</span>
-          </p>
-          <small>AUTOMATION CONSOLE</small>
-        </div>
-      </div>
-      <p className="nav-label">工作空间</p>
-      <nav aria-label="工作空间">
-        {navigation.map(([id, label, Icon], index) => (
-          <div key={id}>
-            {index === 5 && <div className="nav-divider" />}
-            <button
-              type="button"
-              aria-label={label}
-              aria-current={page === id ? "page" : undefined}
-              onClick={() => onNavigate(id)}
-              className="nav-item"
-            >
-              <Icon size={19} aria-hidden="true" />
-              <span>{label}</span>
-              {id === "tasks" && taskCount > 0 && (
-                <span className="nav-count">{taskCount}</span>
-              )}
-            </button>
-          </div>
-        ))}
-      </nav>
-      <div className="nav-footer">
-        <div className="nav-note">
-          <Activity size={18} aria-hidden="true" />
-          <p>
-            把重复留给自动化<span>每一次签到，都井然有序。</span>
-          </p>
-        </div>
-        <a
-          href="https://github.com/dongbo501/TG-SIGNER"
-          target="_blank"
-          rel="noreferrer"
+    <nav aria-label="工作空间" className="workspace-nav">
+      {navigation.map(([id, label, Icon], index) => (
+        <button
+          key={id}
+          type="button"
+          aria-label={label}
+          aria-current={page === id ? "page" : undefined}
+          onClick={() => onNavigate(id)}
+          className="nav-item"
         >
-          <Github size={16} aria-hidden="true" />
-          项目文档
-          <ArrowUpRight size={14} aria-hidden="true" />
-        </a>
-        <p className="nav-privacy">
-          <ShieldCheck size={14} aria-hidden="true" />
-          本地部署 · 数据由您掌控
-        </p>
-      </div>
-    </>
+          <span className="nav-index" aria-hidden="true">
+            0{index + 1}
+          </span>
+          <Icon size={17} aria-hidden="true" />
+          <span>{label}</span>
+          {id === "tasks" && taskCount > 0 && (
+            <span className="nav-count">{taskCount}</span>
+          )}
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -116,9 +82,9 @@ export function Navigation({
   }, []);
   return (
     <>
-      <aside className="desktop-navigation">
+      <div className="desktop-navigation">
         <NavigationContent {...props} />
-      </aside>
+      </div>
       <dialog
         ref={drawer}
         id="mobile-navigation"
@@ -147,11 +113,19 @@ export function Navigation({
         >
           <X size={20} aria-hidden="true" />
         </Button>
+        <div className="drawer-heading">
+          <span className="brand-symbol">
+            <Send size={22} />
+          </span>
+          <strong>
+            tg-signer<span> / WORKSPACE</span>
+          </strong>
+        </div>
         <NavigationContent
           {...props}
           onNavigate={(page) => {
-            props.onNavigate(page);
             drawer.current?.close();
+            props.onNavigate(page);
           }}
         />
       </dialog>

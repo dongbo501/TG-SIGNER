@@ -233,7 +233,7 @@ export function TaskEditor({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="max-w-3xl"
+        className="task-inspector"
         title={
           task
             ? "编辑任务"
