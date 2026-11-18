@@ -22,13 +22,11 @@ def validate_proxy(value):
     return value
 
 
-class SendCode(BaseModel):
-    phone: str = Field(pattern=r"^\+[1-9]\d{6,14}$")
+class AuthParameters(BaseModel):
     name: str = Field(default="", max_length=100)
     api_id: int | None = Field(default=None, gt=0)
     api_hash: str | None = Field(default=None, pattern=r"^[a-fA-F0-9]{32}$")
     proxy: str = Field(default="", max_length=1000)
-    flow_id: str | None = None
 
     _proxy = field_validator("proxy")(validate_proxy)
 
@@ -37,6 +35,11 @@ class SendCode(BaseModel):
         if bool(self.api_id) != bool(self.api_hash):
             raise ValueError("API_ID 与 API_HASH 必须同时填写")
         return self
+
+
+class SendCode(AuthParameters):
+    phone: str = Field(pattern=r"^\+[1-9]\d{6,14}$")
+    flow_id: str | None = None
 
 
 class SignIn(BaseModel):

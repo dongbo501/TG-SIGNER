@@ -5,6 +5,7 @@
 | 上游 / 请求能力 | 网页入口 | 实现 |
 |---|---|---|
 | login：验证码、2FA、自定义 API、代理 | 账号 → 添加账号 | 后端异步状态机；会话落库加密 |
+| Telegram 扫码登录 | 账号 → 添加账号 → 扫码登录 | 本地二维码、过期自动刷新、数据中心迁移、2FA、取消清理 |
 | Session String / `.session` 导入 | 账号 → 添加账号 → 导入 Session | Pyrogram/Kurigram；联网验证授权 |
 | list / run / run-once / reconfig | 签到任务 | CRUD、启停、Cron、立即执行、取消 |
 | export / import（含 YAML） | 任务编辑器与任务操作菜单 | 完整上游配置导出、上传 JSON/YAML、模型校验 |

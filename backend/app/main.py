@@ -69,6 +69,7 @@ from .events import LogBridge, bus
 from .notifications import notify
 from .schemas import (
     AccountUpdate,
+    AuthParameters,
     Check2FA,
     PanelLogin,
     PasswordChange,
@@ -122,7 +123,7 @@ async def lifespan(app):
 
 app = FastAPI(
     title="tg-signer Dashboard API",
-    version="2.0.1",
+    version="2.1.0",
     description="Telegram 账号、签到、自动化与监控管理。除面板登录、健康检查外，所有接口需要 HttpOnly JWT Cookie 或 Bearer JWT。",
     lifespan=lifespan,
     docs_url=None,
@@ -183,7 +184,7 @@ async def value_error(request, exc):
 def health():
     with Session() as db:
         db.execute(select(1))
-    return {"status": "ok", "version": "2.0.1", "tg_signer": upstream_version}
+    return {"status": "ok", "version": "2.1.0", "tg_signer": upstream_version}
 
 
 @app.post("/api/panel/login", tags=["面板鉴权"], summary="密码登录，签发 HttpOnly JWT Cookie")
@@ -228,6 +229,23 @@ def password_change(data: PasswordChange, response: Response):
 )
 async def send_code(data: SendCode):
     return await auth.send(data)
+
+
+@api.post("/auth/qr", tags=["Telegram 登录"], summary="创建扫码登录流程，无需手机号")
+async def start_qr(data: AuthParameters):
+    return await auth.start_qr(data)
+
+
+@api.post(
+    "/auth/qr/{flow_id}",
+    tags=["Telegram 登录"],
+    summary="检查扫码状态、刷新过期二维码并保存授权账号",
+)
+async def qr_status(flow_id: str):
+    result = await auth.qr_status(flow_id)
+    if result["status"] == "AUTHORIZED":
+        await reconnect_account(result["account_id"], connect=False)
+    return result
 
 
 @api.post(

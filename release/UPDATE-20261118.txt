@@ -1,19 +1,24 @@
-TG-SIGNER 2.0.1 更新说明（2026-11-18）
+TG-SIGNER 2.1.0 更新说明（2026-11-18）
 
-本版本撤销今天的三个网页改动提交，恢复到 1.2.1（f94ded2）的原版代码。
-前端页面、样式、交互、测试与原版一致；后端仅更新版本标识。
+本版本新增 Telegram 扫码登录，无需输入手机号。
+入口：添加账号 → 扫码登录 → 生成登录二维码。
+在已登录的 Telegram 手机客户端中打开：设置 → 设备 → 连接桌面设备，扫描并确认。
+二维码过期自动刷新；开启二步验证的账号继续输入 Telegram 云密码。
+支持默认或自定义 API、独立或全局代理，二维码在浏览器本地生成。
+关闭弹窗或返回登录方式时清理连接，整个登录流程十分钟后失效。
 账号、任务、Telegram Session、配置与数据格式保持兼容，无需数据库迁移。
 
-镜像：ghcr.io/dongbo501/tg-signer:2.0.1
+镜像：ghcr.io/dongbo501/tg-signer:2.1.0
 架构：linux/amd64、linux/arm64
-latest 在双架构镜像验证通过后指向 2.0.1。
+latest 在双架构镜像验证通过后指向 2.1.0。
 
 更新步骤：
 1. 备份 data 目录。
 2. 使用发布附件的 docker-compose.yml，或保留已有配置并将 image 改为
-   ghcr.io/dongbo501/tg-signer:2.0.1。
+   ghcr.io/dongbo501/tg-signer:2.1.0。
 3. docker compose pull
 4. docker compose up -d --wait
-5. 刷新浏览器，确认已恢复原版界面。
+5. 刷新浏览器，在添加账号弹窗中选择“扫码登录”。
 
 发布附件包含源码、固定版本 Compose、安装说明、更新说明和 SHA256SUMS。
+自动化测试使用模拟 Telegram 授权响应，真实扫码需要自己的账号与网络环境。

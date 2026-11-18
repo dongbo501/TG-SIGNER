@@ -1,11 +1,13 @@
 "use client";
-import { useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowRight,
   Check,
   KeyRound,
   Loader2,
   LockKeyhole,
+  QrCode,
   Send,
   ShieldCheck,
   Upload,
@@ -18,10 +20,23 @@ import { Button } from "./ui/button";
 import { Dialog, DialogContent } from "./ui/dialog";
 import { Field } from "./common";
 type State = {
-  step: "PARAMETERS" | "CODE_SENT" | "2FA_REQUIRED" | "AUTHORIZED";
+  step:
+    | "PARAMETERS"
+    | "CODE_SENT"
+    | "QR_WAITING"
+    | "2FA_REQUIRED"
+    | "AUTHORIZED";
   flow_id: string;
   phone_code_hash: string;
   retryAt: number;
+  qrUrl: string;
+  qrExpiresAt: number;
+};
+type QRResult = {
+  status: "QR_WAITING" | "QR_READY" | "2FA_REQUIRED" | "AUTHORIZED";
+  flow_id: string;
+  qr_url?: string;
+  expires_in?: number;
 };
 type Event =
   | { type: "RESET" }
@@ -31,13 +46,16 @@ type Event =
       phone_code_hash: string;
       resend_after: number;
     }
-  | { type: "2FA" }
+  | { type: "QR"; result: QRResult }
+  | { type: "2FA"; flow_id: string }
   | { type: "DONE" };
 const initial: State = {
   step: "PARAMETERS",
   flow_id: "",
   phone_code_hash: "",
   retryAt: 0,
+  qrUrl: "",
+  qrExpiresAt: 0,
 };
 function reducer(state: State, event: Event): State {
   switch (event.type) {
@@ -47,23 +65,35 @@ function reducer(state: State, event: Event): State {
       if (state.step !== "PARAMETERS" && state.step !== "CODE_SENT")
         return state;
       return {
+        ...state,
         step: "CODE_SENT",
         flow_id: event.flow_id,
         phone_code_hash: event.phone_code_hash,
         retryAt: Date.now() + event.resend_after * 1000,
       };
+    case "QR":
+      return {
+        ...state,
+        step: "QR_WAITING",
+        flow_id: event.result.flow_id,
+        qrUrl: event.result.qr_url || "",
+        qrExpiresAt: Date.now() + (event.result.expires_in || 0) * 1000,
+      };
     case "2FA":
-      return state.step === "CODE_SENT"
-        ? { ...state, step: "2FA_REQUIRED" }
-        : state;
+      return {
+        ...state,
+        step: "2FA_REQUIRED",
+        flow_id: event.flow_id,
+        qrUrl: "",
+      };
     case "DONE":
-      return { ...state, step: "AUTHORIZED" };
+      return { ...state, step: "AUTHORIZED", qrUrl: "" };
   }
 }
 export function AuthDialog() {
   const { authOpen, setAuthOpen, refresh } = useUI();
   const [state, dispatch] = useReducer(reducer, initial);
-  const [mode, setMode] = useState<"phone" | "import">("phone");
+  const [mode, setMode] = useState<"phone" | "qr" | "import">("phone");
   const [custom, setCustom] = useState(false);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -77,6 +107,14 @@ export function AuthDialog() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [clock, setClock] = useState(Date.now());
+  const [qrPaused, setQrPaused] = useState(false);
+  const generation = useRef(0);
+  const qrHeading = useRef<HTMLHeadingElement>(null);
+  const successHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (state.step === "QR_WAITING") qrHeading.current?.focus();
+    if (state.step === "AUTHORIZED") successHeading.current?.focus();
+  }, [state.step]);
   useEffect(() => {
     const timer = setInterval(() => setClock(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -89,36 +127,80 @@ export function AuthDialog() {
     setFile(null);
     setApiHash("");
     setError("");
+    setQrPaused(false);
     setMode("phone");
   };
   const close = async () => {
     if (busy) return;
-    if (state.flow_id && state.step !== "AUTHORIZED")
+    generation.current++;
+    setAuthOpen(false);
+    reset();
+    if (state.flow_id)
       await api("/auth/flows/" + state.flow_id, { method: "DELETE" }).catch(
         () => {},
       );
-    setAuthOpen(false);
-    reset();
   };
   const spec = () => ({
-    phone,
+    ...(mode === "phone" ? { phone } : {}),
     name,
     proxy,
     ...(custom ? { api_id: Number(apiId), api_hash: apiHash } : {}),
   });
-  const run = async (action: () => Promise<any>) => {
-    setBusy(true);
-    setError("");
-    try {
-      const result = await action();
-      if (result?.status === "AUTHORIZED") {
+  const acceptResult = useCallback(
+    (result: QRResult) => {
+      if (result.status === "AUTHORIZED") {
         dispatch({ type: "DONE" });
         setPassword("");
         setCode("");
         setSession("");
         refresh();
         toast.success("Telegram 账号已绑定");
+      } else if (result.status === "2FA_REQUIRED") {
+        dispatch({ type: "2FA", flow_id: result.flow_id });
+        setCode("");
+      } else if (
+        result.status === "QR_WAITING" ||
+        result.status === "QR_READY"
+      ) {
+        dispatch({ type: "QR", result });
       }
+    },
+    [refresh],
+  );
+  useEffect(() => {
+    if (!authOpen || state.step !== "QR_WAITING" || qrPaused) return;
+    const controller = new AbortController();
+    const current = generation.current;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const result = await api<QRResult>("/auth/qr/" + state.flow_id, {
+          method: "POST",
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || current !== generation.current) return;
+        acceptResult(result);
+        if (result.status === "QR_WAITING" || result.status === "QR_READY")
+          timer = setTimeout(poll, 2000);
+      } catch (e) {
+        if (controller.signal.aborted || current !== generation.current) return;
+        setError((e as Error).message);
+        setQrPaused(true);
+      }
+    };
+    timer = setTimeout(poll, 1000);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [authOpen, state.step, state.flow_id, qrPaused, acceptResult]);
+  const run = async (action: () => Promise<any>) => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await action();
+      if (result) acceptResult(result);
       return result;
     } catch (e) {
       setError((e as Error).message);
@@ -136,18 +218,23 @@ export function AuthDialog() {
     if (result) dispatch({ type: "SENT", ...result });
   };
   const verify = () =>
-    run(async () => {
-      const result = await post("/auth/sign-in", {
+    run(() =>
+      post("/auth/sign-in", {
         flow_id: state.flow_id,
         phone_code_hash: state.phone_code_hash,
         code,
-      });
-      if (result.status === "2FA_REQUIRED") {
-        dispatch({ type: "2FA" });
-        setCode("");
-      }
-      return result;
+      }),
+    );
+  const restart = async () => {
+    generation.current++;
+    setQrPaused(true);
+    await run(async () => {
+      await api("/auth/flows/" + state.flow_id, { method: "DELETE" });
+      dispatch({ type: "RESET" });
+      setPassword("");
+      setQrPaused(false);
     });
+  };
   const importSession = () =>
     run(() => {
       const form = new FormData();
@@ -162,9 +249,17 @@ export function AuthDialog() {
       return api("/accounts/import", { method: "POST", body: form });
     });
   const remaining = Math.max(0, Math.ceil((state.retryAt - clock) / 1000));
-  const steps = ["账号信息", "验证码", "安全验证"];
+  const qrRemaining = Math.max(
+    0,
+    Math.ceil((state.qrExpiresAt - clock) / 1000),
+  );
+  const steps = ["账号信息", mode === "qr" ? "扫码确认" : "验证码", "安全验证"];
   const index =
-    state.step === "PARAMETERS" ? 0 : state.step === "CODE_SENT" ? 1 : 2;
+    state.step === "PARAMETERS"
+      ? 0
+      : ["CODE_SENT", "QR_WAITING"].includes(state.step)
+        ? 1
+        : 2;
   return (
     <Dialog
       open={authOpen}
@@ -180,6 +275,7 @@ export function AuthDialog() {
           {steps.map((s, i) => (
             <div
               key={s}
+              aria-current={i === index ? "step" : undefined}
               className={cn(
                 "flex items-center gap-2 text-xs",
                 i <= index ? "text-primary" : "text-slate-400",
@@ -200,7 +296,13 @@ export function AuthDialog() {
         {state.step === "AUTHORIZED" ? (
           <div className="py-8 text-center">
             <ShieldCheck className="mx-auto mb-4 text-primary" size={48} />
-            <h3 className="text-xl font-semibold">连接成功</h3>
+            <h3
+              ref={successHeading}
+              tabIndex={-1}
+              className="text-xl font-semibold"
+            >
+              连接成功
+            </h3>
             <p className="my-3 text-sm text-muted">
               账号已保存，可以开始创建签到任务了。
             </p>
@@ -212,9 +314,12 @@ export function AuthDialog() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              if (busy || state.step === "QR_WAITING") return;
               if (mode === "import") void importSession();
-              else if (state.step === "PARAMETERS") void send();
-              else if (state.step === "CODE_SENT") void verify();
+              else if (state.step === "PARAMETERS") {
+                if (mode === "qr") void run(() => post("/auth/qr", spec()));
+                else void send();
+              } else if (state.step === "CODE_SENT") void verify();
               else
                 void run(() =>
                   post("/auth/check-2fa", { flow_id: state.flow_id, password }),
@@ -224,26 +329,40 @@ export function AuthDialog() {
           >
             {state.step === "PARAMETERS" && (
               <>
-                <div className="flex rounded-lg bg-slate-100 p-1">
-                  {(["phone", "import"] as const).map((v) => (
-                    <button
-                      type="button"
+                <fieldset
+                  disabled={busy}
+                  className="flex rounded-lg bg-slate-100 p-1"
+                >
+                  <legend className="sr-only">登录方式</legend>
+                  {(["phone", "qr", "import"] as const).map((v) => (
+                    <label
                       key={v}
-                      onClick={() => {
-                        setMode(v);
-                        setError("");
-                      }}
                       className={cn(
-                        "flex-1 rounded-md py-2 text-sm",
+                        "relative flex min-h-12 flex-1 cursor-pointer items-center justify-center rounded-md text-sm has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary",
                         mode === v
                           ? "bg-white font-medium text-ink shadow-sm"
                           : "text-muted",
                       )}
                     >
-                      {v === "phone" ? "手机号登录" : "导入 Session"}
-                    </button>
+                      <input
+                        type="radio"
+                        name="login-mode"
+                        value={v}
+                        checked={mode === v}
+                        className="sr-only"
+                        onChange={() => {
+                          setMode(v);
+                          setError("");
+                        }}
+                      />
+                      {v === "phone"
+                        ? "手机号登录"
+                        : v === "qr"
+                          ? "扫码登录"
+                          : "导入 Session"}
+                    </label>
                   ))}
-                </div>
+                </fieldset>
                 <Field label="账号备注">
                   <input
                     value={name}
@@ -267,6 +386,11 @@ export function AuthDialog() {
                       autoComplete="tel"
                     />
                   </Field>
+                ) : mode === "qr" ? (
+                  <p className="rounded-xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
+                    无需输入手机号。请使用已登录的 Telegram
+                    手机客户端扫描二维码，并确认登录。
+                  </p>
                 ) : (
                   <>
                     <Field
@@ -338,6 +462,46 @@ export function AuthDialog() {
                 </Field>
               </>
             )}
+            {state.step === "QR_WAITING" && (
+              <div className="space-y-4 text-center">
+                <h3 ref={qrHeading} tabIndex={-1} className="font-medium">
+                  使用 Telegram 扫码登录
+                </h3>
+                <div className="mx-auto flex h-60 w-60 max-w-full items-center justify-center rounded-xl border bg-white p-2">
+                  {state.qrUrl && qrRemaining > 0 && !qrPaused ? (
+                    <QRCodeSVG
+                      value={state.qrUrl}
+                      size={224}
+                      marginSize={4}
+                      level="M"
+                      role="img"
+                      aria-label="Telegram 登录二维码"
+                      className="h-auto max-w-full"
+                    />
+                  ) : (
+                    <p className="px-4 text-sm text-muted">
+                      {qrPaused
+                        ? "扫码状态检查已暂停"
+                        : "二维码已过期，正在自动刷新…"}
+                    </p>
+                  )}
+                </div>
+                <p className="text-sm leading-6 text-muted">
+                  打开 Telegram → 设置 → 设备 →
+                  连接桌面设备，扫描上方二维码并确认。
+                </p>
+                <p role="status" className="text-sm text-primary">
+                  {qrPaused
+                    ? "请重试检查或重新开始登录"
+                    : "等待扫码确认，二维码过期后自动刷新"}
+                </p>
+                {qrRemaining > 0 && !qrPaused && (
+                  <p className="text-xs text-muted">
+                    当前二维码 {qrRemaining} 秒后过期
+                  </p>
+                )}
+              </div>
+            )}
             {state.step === "CODE_SENT" && (
               <>
                 <div className="rounded-xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
@@ -395,30 +559,62 @@ export function AuthDialog() {
                 {error}
               </p>
             )}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={busy || (mode === "import" && !session && !file)}
-            >
-              {busy ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : mode === "import" ? (
-                <Upload size={16} />
-              ) : state.step === "2FA_REQUIRED" ? (
-                <KeyRound size={16} />
-              ) : (
-                <ArrowRight size={16} />
-              )}{" "}
-              {busy
-                ? "正在连接 Telegram…"
-                : mode === "import"
-                  ? "导入并验证"
-                  : state.step === "PARAMETERS"
-                    ? "发送验证码"
-                    : state.step === "CODE_SENT"
-                      ? "验证并继续"
-                      : "验证密码"}
-            </Button>
+            {state.step !== "QR_WAITING" && (
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={busy || (mode === "import" && !session && !file)}
+              >
+                {busy ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : mode === "import" ? (
+                  <Upload size={16} />
+                ) : state.step === "2FA_REQUIRED" ? (
+                  <KeyRound size={16} />
+                ) : mode === "qr" ? (
+                  <QrCode size={16} />
+                ) : (
+                  <ArrowRight size={16} />
+                )}{" "}
+                {busy
+                  ? "正在连接 Telegram…"
+                  : mode === "import"
+                    ? "导入并验证"
+                    : state.step === "PARAMETERS"
+                      ? mode === "qr"
+                        ? "生成登录二维码"
+                        : "发送验证码"
+                      : state.step === "CODE_SENT"
+                        ? "验证并继续"
+                        : "验证密码"}
+              </Button>
+            )}
+            {mode === "qr" && state.step !== "PARAMETERS" && (
+              <div className="flex gap-3">
+                {qrPaused && state.step === "QR_WAITING" && (
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    disabled={busy}
+                    onClick={() => {
+                      setError("");
+                      setQrPaused(false);
+                    }}
+                  >
+                    重新检查状态
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  disabled={busy}
+                  onClick={() => void restart()}
+                >
+                  返回登录方式
+                </Button>
+              </div>
+            )}
             <p className="flex items-center justify-center gap-1.5 text-xs text-muted">
               <ShieldCheck size={13} /> Session 加密存储 · 验证码和密码不落盘
             </p>

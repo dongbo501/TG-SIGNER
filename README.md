@@ -1,8 +1,8 @@
 # tg-signer Dashboard
 
-面向 Telegram 签到、自动化与消息监控的单容器 Web 控制台（当前版本：`2.0.1`）。
+面向 Telegram 签到、自动化与消息监控的单容器 Web 控制台（当前版本：`2.1.0`）。
 
-2.0.1 撤销 2026-11-18 的网页重构，恢复 1.2.1 的界面与功能，以新版本重新发布镜像。
+2.1.0 新增 Telegram 扫码登录，支持二维码自动刷新、二步验证密码、自定义 API 和代理；沿用现有界面与数据格式。
 
 源码仓库：<https://github.com/dongbo501/TG-SIGNER> · 上游执行器：<https://github.com/amchii/tg-signer>
 
@@ -68,6 +68,10 @@
 stateDiagram-v2
     [*] --> PARAMETERS
     PARAMETERS --> CODE_SENT: send-code / connect + send_code
+    PARAMETERS --> QR_WAITING: 生成登录二维码
+    QR_WAITING --> QR_WAITING: 二维码过期自动刷新
+    QR_WAITING --> TWO_FA: 扫码确认后需要云密码
+    QR_WAITING --> AUTHORIZED: 扫码确认成功
     CODE_SENT --> CODE_SENT: 60 秒后 resend_code，更新 hash
     CODE_SENT --> CODE_SENT: 验证码错误，可重试
     CODE_SENT --> TWO_FA: sign_in 抛出 SessionPasswordNeeded
@@ -76,16 +80,21 @@ stateDiagram-v2
     TWO_FA --> AUTHORIZED: check_password 成功
     AUTHORIZED --> [*]: get_me + 加密 Session 入库 + disconnect
     CODE_SENT --> EXPIRED: 十分钟 / 取消 / 服务重启
+    QR_WAITING --> EXPIRED: 十分钟 / 取消 / 服务重启
     TWO_FA --> EXPIRED: 十分钟 / 取消 / 服务重启
     EXPIRED --> PARAMETERS: 重新开始
 ```
 
 - `POST /api/auth/send-code`：手机号、自定义或默认 API、独立代理；返回随机 `flow_id`、`phone_code_hash`、重发倒计时。
+- `POST /api/auth/qr`：创建扫码登录流程，无需手机号；支持默认/自定义 API 和独立/全局代理，返回 `flow_id`、`qr_url` 与二维码剩余秒数。
+- `POST /api/auth/qr/{flow_id}`：检查扫码状态；二维码过期自动刷新，扫码确认后返回 `AUTHORIZED` 或 `2FA_REQUIRED`。此操作可能保存账号，因此使用 POST 并检查跨站请求。
 - `POST /api/auth/sign-in`：验证 flow、hash、验证码；返回 `AUTHORIZED` 或 `2FA_REQUIRED`。
 - `POST /api/auth/check-2fa`：仅允许在 `2FA_REQUIRED` 状态提交密码。
 - `DELETE /api/auth/flows/{flow_id}`：取消并清理连接。
 - 每个流程单独加锁，最多八次验证尝试、十分钟有效期；每个手机号限频，最多二十个未完成流程。错误请求不会越过状态机。
 - 不调用 Pyrogram 交互式 `start()` 获取验证码，不保存验证码、2FA 密码或待登录流程到数据库。成功后 Session、API_HASH、代理凭据以 Fernet 加密。
+- 扫码入口：**添加账号 → 扫码登录 → 生成登录二维码**，在已登录的 Telegram 手机客户端打开 **设置 → 设备 → 连接桌面设备** 扫描并确认；开启二步验证的账号还需输入云密码。二维码由浏览器本地生成，不发送给第三方二维码服务。
+- 扫码状态每两秒检查一次；后端仅在收到 Telegram 授权更新或二维码到期时请求新状态，支持授权数据中心迁移。整个流程仍在十分钟后失效，关闭/返回会取消流程并断开连接；创建扫码流程限十分钟十次。
 - 导入支持 **Pyrogram/Kurigram** Session String 与 `.session` SQLite 文件；先验证实际授权，再保存。Telethon 文件不是相同格式，会明确拒绝而不是错误识别。
 
 ### 账号断线自动重连
@@ -121,7 +130,7 @@ Automation 复用上游触发器、过滤器、模板、handler、持久状态�
 
 ## 4. 单容器部署
 
-镜像发布在 `ghcr.io/dongbo501/tg-signer:latest`（Linux amd64）。在项目目录（或只放一份 `docker-compose.yml` 的目录）中执行：
+镜像发布在 `ghcr.io/dongbo501/tg-signer:latest`（Linux amd64、arm64）。在项目目录（或只放一份 `docker-compose.yml` 的目录）中执行：
 
 ```bash
 docker compose pull
@@ -226,10 +235,10 @@ npm run test:e2e
 
 ## 镜像构建与发布
 
-镜像地址：`ghcr.io/dongbo501/tg-signer:2.0.1` / `:latest`（Linux amd64、arm64）。部署方式见上文「单容器部署」，
+镜像地址：`ghcr.io/dongbo501/tg-signer:2.1.0` / `:latest`（Linux amd64、arm64）。部署方式见上文「单容器部署」，
 详细说明见 [release/INSTALL.txt](release/INSTALL.txt)。镜像不包含账号、任务数据或密钥。
 
-推送版本标签（如 `2.0.1`）后，GitHub Actions 自动执行后端/上游测试、前端类型检查和构建，
+推送版本标签（如 `2.1.0`）后，GitHub Actions 自动执行后端/上游测试、前端类型检查和构建，
 构建两种架构的 GHCR 镜像，验证容器健康状态，并发布对应 GitHub Release、源码归档、
 固定版本 Compose、更新说明和 SHA256 校验文件。工作流见 `.github/workflows/release.yml`。
 
