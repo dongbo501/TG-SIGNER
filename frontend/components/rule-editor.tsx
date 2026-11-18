@@ -25,7 +25,7 @@ const fromList = (value: unknown) =>
 
 function EditorIntro({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-line bg-success-soft px-4 py-3 text-sm leading-6 text-success dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-100">
+    <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-4 py-3 text-sm leading-6 text-emerald-900 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-100">
       {children}
     </div>
   );
@@ -87,7 +87,7 @@ function MonitorEditor({ config, onChange }: Omit<RuleEditorProps, "kind">) {
         用表单描述“在哪个对话里，匹配什么消息，以及匹配后如何回复”。常用配置不需要编写 JSON；需要更复杂的转发时仍可切换到高级模式。
       </EditorIntro>
       {matchCfgs.map((item: any, index: number) => (
-        <section key={index} className="rounded-xl border border-line bg-surface-muted p-4 dark:bg-slate-900/40">
+        <section key={index} className="rounded-xl border border-line bg-slate-50/60 p-4 dark:bg-slate-900/40">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="eyebrow text-muted">监控条件 {String(index + 1).padStart(2, "0")}</p>
@@ -375,7 +375,7 @@ function AutomationEditor({ config, onChange }: Omit<RuleEditorProps, "kind">) {
         按“触发条件 → 消息筛选 → 执行动作”搭建自动化流程。每一条规则都可以有多个触发器和动作，拖拽排序暂不需要，按列表顺序执行即可。
       </EditorIntro>
       {rules.map((rule: any, index: number) => (
-        <section key={index} className="rounded-xl border border-line bg-surface-muted p-4 dark:bg-slate-900/40">
+        <section key={index} className="rounded-xl border border-line bg-slate-50/60 p-4 dark:bg-slate-900/40">
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <Field label="规则名称" className="min-w-48 flex-1">
               <input value={rule.id ?? ""} onChange={(event) => updateRule(index, { id: event.target.value })} placeholder="例如：auto_reply" />
@@ -402,7 +402,7 @@ function AutomationEditor({ config, onChange }: Omit<RuleEditorProps, "kind">) {
                   };
                   const setParams = (patch: any) => setTrigger({ params: { ...params, ...patch } });
                   return (
-                    <div key={triggerIndex} className="rounded-lg border border-line bg-surface p-3 dark:bg-slate-800/60">
+                    <div key={triggerIndex} className="rounded-lg border border-line bg-white/80 p-3 dark:bg-slate-800/60">
                       <div className="mb-3 flex items-center gap-2">
                         <select className="!w-44" value={trigger.type} onChange={(event) => setTrigger({ type: event.target.value, params: {} })}>
                           <option value="message">收到消息时</option><option value="timer">定时触发</option><option value="startup">启动时</option>
@@ -435,7 +435,7 @@ function AutomationEditor({ config, onChange }: Omit<RuleEditorProps, "kind">) {
               <div className="mb-3 flex items-center justify-between"><h4 className="text-sm font-semibold">匹配后执行</h4><Button variant="outline" size="sm" onClick={() => updateNested(index, "handlers", [...(rule.handlers || []), { handler: "send_text", params: { text: "" } }])}><Plus size={13} />添加动作</Button></div>
               <div className="space-y-3">
                 {(rule.handlers || []).map((item: any, handlerIndex: number) => (
-                  <div key={handlerIndex} className="rounded-lg border border-line bg-surface p-3 dark:bg-slate-800/60">
+                  <div key={handlerIndex} className="rounded-lg border border-line bg-white/80 p-3 dark:bg-slate-800/60">
                     <div className="mb-3 flex items-center gap-2">
                       <select className="!w-52" value={item.handler} onChange={(event) => { const handlers = clone(rule.handlers || []); handlers[handlerIndex] = { handler: event.target.value, params: paramsFor(event.target.value) }; updateNested(index, "handlers", handlers); }}>
                         {handlerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}

@@ -251,7 +251,7 @@ export function Tools({ accounts }: { accounts: Account[] }) {
               </Field>
             )}
             {form.operation === "logout" && (
-              <p className="rounded-lg bg-warning-soft p-3 text-sm text-warning">
+              <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
                 这将撤销 Telegram
                 授权并禁用该账号的全部任务。再次使用需要重新登录。
               </p>
@@ -331,7 +331,7 @@ export function Tools({ accounts }: { accounts: Account[] }) {
           <Result value={result} />
         </div>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[230px_minmax(0,1fr)]">
+        <div className="grid gap-6 xl:grid-cols-[230px_1fr]">
           <section className="card p-5">
             <h2 className="mb-4 font-semibold">自定义 Handler</h2>
             <p className="mb-5 text-xs leading-6 text-muted">
@@ -342,7 +342,7 @@ export function Tools({ accounts }: { accounts: Account[] }) {
               <button
                 key={p.name}
                 onClick={() => setPlugin(p)}
-                className="mb-2 block w-full rounded-lg bg-surface-muted px-3 py-2 text-left font-mono text-xs"
+                className="mb-2 block w-full rounded-lg bg-slate-50 px-3 py-2 text-left font-mono text-xs"
               >
                 {p.name}
               </button>

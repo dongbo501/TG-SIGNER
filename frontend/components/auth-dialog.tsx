@@ -182,13 +182,13 @@ export function AuthDialog() {
               key={s}
               className={cn(
                 "flex items-center gap-2 text-xs",
-                i <= index ? "text-primary" : "text-muted",
+                i <= index ? "text-primary" : "text-slate-400",
               )}
             >
               <span
                 className={cn(
                   "flex h-6 w-6 items-center justify-center rounded-full",
-                  i <= index ? "bg-success-soft" : "bg-surface-raised",
+                  i <= index ? "bg-emerald-100" : "bg-slate-100",
                 )}
               >
                 {i < index ? <Check size={13} /> : i + 1}
@@ -224,7 +224,7 @@ export function AuthDialog() {
           >
             {state.step === "PARAMETERS" && (
               <>
-                <div className="flex rounded-lg bg-surface-raised p-1">
+                <div className="flex rounded-lg bg-slate-100 p-1">
                   {(["phone", "import"] as const).map((v) => (
                     <button
                       type="button"
@@ -236,7 +236,7 @@ export function AuthDialog() {
                       className={cn(
                         "flex-1 rounded-md py-2 text-sm",
                         mode === v
-                          ? "bg-surface font-medium text-ink shadow-sm"
+                          ? "bg-white font-medium text-ink shadow-sm"
                           : "text-muted",
                       )}
                     >
@@ -340,7 +340,7 @@ export function AuthDialog() {
             )}
             {state.step === "CODE_SENT" && (
               <>
-                <div className="rounded-xl bg-success-soft p-4 text-sm leading-6 text-success">
+                <div className="rounded-xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
                   <Send size={18} className="mb-2" />
                   验证码已发送至 {phone}，请查看 Telegram 客户端或短信。
                 </div>
@@ -371,7 +371,7 @@ export function AuthDialog() {
             )}
             {state.step === "2FA_REQUIRED" && (
               <>
-                <div className="rounded-xl bg-warning-soft p-4 text-sm leading-6 text-warning">
+                <div className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-800">
                   <LockKeyhole size={20} className="mb-2" />
                   此账号已开启二步验证，请输入 Telegram 云密码。
                 </div>
@@ -390,7 +390,7 @@ export function AuthDialog() {
             {error && (
               <p
                 role="alert"
-                className="rounded-lg bg-danger-soft p-3 text-sm leading-6 text-danger"
+                className="rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-600"
               >
                 {error}
               </p>

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { flushSync } from "react-dom";
 export type Page =
   | "overview"
   | "accounts"
@@ -16,46 +15,9 @@ interface UI {
   authOpen: boolean;
   setAuthOpen: (v: boolean) => void;
 }
-type Transition = { finished: Promise<void>; skipTransition: () => void };
-let activeTransition: Transition | undefined;
-export const useUI = create<UI>((set, get) => ({
+export const useUI = create<UI>((set) => ({
   page: "overview",
-  setPage: (page) => {
-    if (get().page === page) return;
-    const update = () => flushSync(() => set({ page }));
-    if (typeof document === "undefined") {
-      set({ page });
-      return;
-    }
-    const viewDocument = document as Document & {
-      startViewTransition?: (update: () => void) => Transition;
-    };
-    const focus = () =>
-      document.getElementById("page-heading")?.focus({ preventScroll: true });
-    if (
-      get().page === "overview" ||
-      page === "overview" ||
-      !viewDocument.startViewTransition ||
-      matchMedia("(prefers-reduced-motion: reduce)").matches ||
-      document.documentElement.dataset.motion === "paused" ||
-      document.querySelector("dialog[open]")
-    ) {
-      update();
-      focus();
-      return;
-    }
-    activeTransition?.skipTransition();
-    const transition = viewDocument.startViewTransition(update);
-    activeTransition = transition;
-    transition.finished
-      .catch(() => {})
-      .then(() => {
-        if (activeTransition === transition) {
-          activeTransition = undefined;
-          focus();
-        }
-      });
-  },
+  setPage: (page) => set({ page }),
   revision: 0,
   refresh: () => set((s) => ({ revision: s.revision + 1 })),
   authOpen: false,

@@ -33,40 +33,35 @@ export function Field({
   className?: string;
   hintAriaHidden?: boolean;
 }) {
-  const generatedId = useId();
-  const control =
-    isValidElement<any>(children) &&
-    typeof children.type === "string" &&
-    ["input", "select", "textarea"].includes(children.type)
-      ? children
-      : null;
-  const controlId = control?.props.id || generatedId;
-  const hintId = `${controlId}-hint`;
-  const labelledChildren = control
-    ? cloneElement<any>(control, {
-        id: controlId,
-        name: control.props.name ?? controlId,
-        "aria-describedby":
-          [
-            control.props["aria-describedby"],
-            hint && !hintAriaHidden ? hintId : null,
-          ]
-            .filter(Boolean)
-            .join(" ") || undefined,
-      })
-    : children;
+  const hintId = useId();
+  const labelProps = hint ? { "aria-describedby": hintId } : {};
+  const labelledChildren = Array.isArray(children)
+    ? children.map((child) =>
+        isValidElement<any>(child) && !child.props["aria-label"]
+          ? cloneElement<any>(child, {
+              "aria-label": label,
+              ...labelProps,
+            })
+          : isValidElement<any>(child) && hint
+            ? cloneElement<any>(child, labelProps)
+            : child,
+      )
+    : isValidElement<any>(children) && !children.props["aria-label"]
+      ? cloneElement<any>(children, {
+          "aria-label": label,
+          ...labelProps,
+        })
+      : isValidElement<any>(children) && hint
+        ? cloneElement<any>(children, labelProps)
+        : children;
   return (
-    <div
+    <label
       className={cn(
-        "grid min-w-0 content-start items-start gap-2 text-sm font-medium text-ink",
+        "grid content-start items-start gap-2 text-sm font-medium text-ink",
         className,
       )}
     >
-      {control ? (
-        <label htmlFor={controlId}>{label}</label>
-      ) : (
-        <span>{label}</span>
-      )}
+      <span>{label}</span>
       {labelledChildren}
       {hint && (
         <span
@@ -77,10 +72,9 @@ export function Field({
           {hint}
         </span>
       )}
-    </div>
+    </label>
   );
 }
-
 export function Empty({
   title,
   description,
@@ -92,7 +86,7 @@ export function Empty({
 }) {
   return (
     <div className="flex min-h-52 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-      <div className="mb-1 rounded-2xl bg-success-soft p-4 text-primary">
+      <div className="mb-1 rounded-2xl bg-emerald-50 p-4 text-primary">
         <Inbox size={26} />
       </div>
       <p className="font-semibold">{title}</p>
@@ -103,19 +97,19 @@ export function Empty({
 }
 export function Status({ value }: { value: string }) {
   const map: Record<string, [string, string]> = {
-    online: ["在线", "bg-success-soft text-success"],
-    success: ["成功", "bg-success-soft text-success"],
-    completed: ["已执行", "bg-info-soft text-info"],
-    failed: ["失败", "bg-danger-soft text-danger"],
-    invalid: ["需验证", "bg-warning-soft text-warning"],
-    banned: ["已封禁", "bg-danger-soft text-danger"],
-    running: ["运行中", "bg-info-soft text-info"],
-    pending: ["待执行", "bg-surface-raised text-muted"],
-    offline: ["未连接", "bg-surface-raised text-muted"],
-    cancelled: ["已停止", "bg-surface-raised text-muted"],
-    interrupted: ["已中断", "bg-warning-soft text-warning"],
+    online: ["在线", "bg-emerald-50 text-emerald-700"],
+    success: ["成功", "bg-emerald-50 text-emerald-700"],
+    completed: ["已执行", "bg-sky-50 text-sky-700"],
+    failed: ["失败", "bg-red-50 text-red-600"],
+    invalid: ["需验证", "bg-amber-50 text-amber-700"],
+    banned: ["已封禁", "bg-red-50 text-red-600"],
+    running: ["运行中", "bg-blue-50 text-blue-700"],
+    pending: ["待执行", "bg-slate-100 text-slate-500"],
+    offline: ["未连接", "bg-slate-100 text-slate-500"],
+    cancelled: ["已停止", "bg-slate-100 text-slate-500"],
+    interrupted: ["已中断", "bg-amber-50 text-amber-700"],
   };
-  const [label, color] = map[value] || [value, "bg-surface-raised text-muted"];
+  const [label, color] = map[value] || [value, "bg-slate-100 text-slate-500"];
   return (
     <span
       className={cn(
@@ -166,15 +160,12 @@ export function DataTable<T>({
   columns,
   empty = "暂无记录",
   resetPageKey = "",
-  caption = "数据列表",
 }: {
   data: T[];
   columns: ColumnDef<T, any>[];
   empty?: string;
   resetPageKey?: string;
-  caption?: string;
 }) {
-  const captionId = useId();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -217,56 +208,31 @@ export function DataTable<T>({
   const pageNumbers = [...new Set([1, ...visiblePages, pageCount])];
   return (
     <>
-      <div
-        className="table-scroll"
-        role="region"
-        aria-labelledby={captionId}
-        tabIndex={0}
-      >
-        <table className="data-table">
-          <caption id={captionId} className="sr-only">
-            {caption}
-          </caption>
-          <thead>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="border-y border-line bg-slate-50/80 text-xs text-muted">
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
                 {group.headers.map((header) => (
                   <th
-                    scope="col"
-                    aria-sort={
-                      header.column.getCanSort()
-                        ? header.column.getIsSorted() === "asc"
-                          ? "ascending"
-                          : header.column.getIsSorted() === "desc"
-                            ? "descending"
-                            : "none"
-                        : undefined
-                    }
+                    className="whitespace-nowrap px-5 py-3.5 font-medium"
                     key={header.id}
                   >
-                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                    {header.isPlaceholder ? null : (
                       <button
-                        type="button"
-                        className="sort-button"
+                        className="text-left"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(
                           header.column.columnDef.header,
                           header.getContext(),
                         )}
-                        <span aria-hidden="true">
-                          {header.column.getIsSorted() === "asc"
-                            ? "↑"
-                            : header.column.getIsSorted() === "desc"
-                              ? "↓"
-                              : "↕"}
-                        </span>
+                        {header.column.getIsSorted() === "asc"
+                          ? " ↑"
+                          : header.column.getIsSorted() === "desc"
+                            ? " ↓"
+                            : ""}
                       </button>
-                    ) : (
-                      flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )
                     )}
                   </th>
                 ))}
@@ -276,26 +242,14 @@ export function DataTable<T>({
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <tr
-                className="border-b border-line last:border-0 hover:bg-surface-muted"
+                className="border-b border-line last:border-0 hover:bg-slate-50/60"
                 key={row.id}
               >
-                {row.getVisibleCells().map((cell, index) =>
-                  index === 0 ? (
-                    <th scope="row" key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </th>
-                  ) : (
-                    <td key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </td>
-                  ),
-                )}
+                {row.getVisibleCells().map((cell) => (
+                  <td className="px-5 py-4" key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>

@@ -271,11 +271,11 @@ export function Logs({
           </div>
           <div className="h-[500px] overflow-y-auto p-5 font-mono text-xs leading-7">
             {!filtered.length && (
-              <p className="text-slate-400">等待任务日志…</p>
+              <p className="text-slate-500">等待任务日志…</p>
             )}
             {filtered.map((e, i) => (
               <div key={i} className="flex gap-3">
-                <span className="shrink-0 text-slate-400">
+                <span className="shrink-0 text-slate-500">
                   {new Date(e.time).toLocaleTimeString("zh-CN", {
                     hour12: false,
                   })}
@@ -300,7 +300,7 @@ export function Logs({
             ))}
             <div ref={bottom} />
           </div>
-          <div className="flex justify-between border-t border-white/10 px-5 py-3 text-[11px] text-slate-400">
+          <div className="flex justify-between border-t border-white/10 px-5 py-3 text-[11px] text-slate-500">
             <span>{paused ? "已暂停接收显示" : `${transport} 实时日志流`}</span>
             <span>最近 {entries.length} 条 · 最多保留 1,000 条</span>
           </div>
@@ -363,10 +363,10 @@ export function Logs({
               导出本页
             </Button>
           </div>
-          {error && <p className="p-5 text-sm text-danger">{error}</p>}
+          {error && <p className="p-5 text-sm text-red-600">{error}</p>}
           <div className="overflow-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-y border-line bg-surface-muted text-xs text-muted">
+              <thead className="border-y border-line bg-slate-50 text-xs text-muted">
                 <tr>
                   {["执行时间", "任务 / 账号", "状态", "结果摘要", "详情"].map(
                     (t) => (
@@ -458,7 +458,7 @@ export function Logs({
           <h3 className="mb-2 text-xs font-medium text-muted">
             Telegram 原始回复
           </h3>
-          <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-surface-muted p-4 text-xs leading-6">
+          <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-slate-50 p-4 text-xs leading-6">
             {selected?.response || "没有记录到回复消息。"}
           </pre>
         </DialogContent>

@@ -40,15 +40,6 @@ jobs:
           npm ci
           npm run typecheck
           npm run build
-          npx playwright install --with-deps chromium
-          DATA_DIR="$RUNNER_TEMP/tg-signer-e2e" STATIC_DIR="$PWD/out" ADMIN_PASSWORD=ci-browser-test-password python -m uvicorn backend.app.main:app --app-dir .. --host 127.0.0.1 --port 18999 > "$RUNNER_TEMP/tg-signer-e2e.log" 2>&1 &
-          SERVER_PID=$!
-          trap 'kill "$SERVER_PID"; cat "$RUNNER_TEMP/tg-signer-e2e.log"' EXIT
-          for attempt in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:18999/api/health; then break; fi
-            sleep 1
-          done
-          DASHBOARD_URL=http://127.0.0.1:18999 DASHBOARD_PASSWORD=ci-browser-test-password npm run test:e2e
 
   publish:
     needs: verify
