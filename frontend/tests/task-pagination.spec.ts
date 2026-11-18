@@ -32,7 +32,11 @@ async function openTasks(page: Page, count: number) {
   // All API requests stay in the browser; no real tasks or sessions are used.
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path === "/api/panel/me") return route.fulfill({ json: {} });
+    if (path === "/api/panel/me") {
+      // Exercise asynchronous authentication, including slower CI hosts.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return route.fulfill({ json: {} });
+    }
     if (path === "/api/accounts") return route.fulfill({ json: [] });
     if (path === "/api/overview")
       return route.fulfill({ json: { trend: [], recent: [] } });
@@ -53,6 +57,9 @@ async function openTasks(page: Page, count: number) {
     );
   });
   await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "工作空间概览", exact: true }),
+  ).toBeVisible();
   if (await page.getByRole("button", { name: "打开导航" }).isVisible())
     await page.getByRole("button", { name: "打开导航" }).click();
   await page

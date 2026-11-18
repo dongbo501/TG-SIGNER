@@ -1,6 +1,6 @@
 # tg-signer Dashboard
 
-面向 Telegram 签到、自动化与消息监控的单容器 Web 控制台（当前版本：`1.3.0`）。
+面向 Telegram 签到、自动化与消息监控的单容器 Web 控制台（当前版本：`1.3.1`）。
 
 源码仓库：<https://github.com/dongbo501/TG-SIGNER> · 上游执行器：<https://github.com/amchii/tg-signer>
 
@@ -224,7 +224,7 @@ npm run test:e2e
 
 ## 网页界面与浏览器兼容
 
-1.3.0 使用统一浅／深色配色与自适应布局，支持系统主题、手动主题覆盖及跨标签页同步。
+1.3.1 使用统一浅／深色配色与自适应布局，支持系统主题、手动主题覆盖及跨标签页同步。
 手机导航支持键盘与 Escape，表格可横向滚动并保留分页／排序，图表可展开查看数据。
 浏览器以 Baseline Widely Available 为基础；`light-dark()` 和标准滚动条配色提供 CSS 回退，
 容器查询、动态视口和原生 `<dialog>` 用于现代浏览器。支持减少动态效果和可见焦点。
@@ -234,10 +234,10 @@ npm run test:e2e
 
 ## 镜像构建与发布
 
-镜像地址：`ghcr.io/dongbo501/tg-signer:1.3.0` / `:latest`（Linux amd64、arm64）。部署方式见上文「单容器部署」，
+镜像地址：`ghcr.io/dongbo501/tg-signer:1.3.1` / `:latest`（Linux amd64、arm64）。部署方式见上文「单容器部署」，
 详细说明见 [release/INSTALL.txt](release/INSTALL.txt)。镜像不包含账号、任务数据或密钥。
 
-推送版本标签（如 `1.3.0`）后，GitHub Actions 自动执行后端/上游测试、前端类型检查和构建，
+推送版本标签（如 `1.3.1`）后，GitHub Actions 自动执行后端/上游测试、前端类型检查和构建，
 构建两种架构的 GHCR 镜像，验证容器健康状态，并发布对应 GitHub Release、源码归档、
 固定版本 Compose、更新说明和 SHA256 校验文件。工作流见 `.github/workflows/release.yml`。
 
